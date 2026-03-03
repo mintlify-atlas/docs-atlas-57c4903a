@@ -1,122 +1,125 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "GLAM SDK",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6366F1",
+    "light": "#818CF8",
+    "dark": "#4F46E5"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/glamsystems/glam-sdk-ts"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/glamsystems/glam-sdk-ts"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "core/glam-protocol",
+              "core/vaults",
+              "core/clients",
+              "core/configuration"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/creating-vaults",
+              "guides/managing-assets",
+              "guides/integrations",
+              "guides/access-control",
+              "guides/react-integration"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Examples",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "examples/basic-usage",
+              "examples/vault-operations",
+              "examples/defi-integrations"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core Clients",
             "pages": [
-              "api-reference/introduction"
+              "api/glam-client",
+              "api/base-client",
+              "api/vault-client",
+              "api/state-client",
+              "api/invest-client"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Integration Clients",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/jupiter-swap",
+              "api/drift",
+              "api/kamino",
+              "api/marinade",
+              "api/stake-pool"
+            ]
+          },
+          {
+            "group": "Management Clients",
+            "pages": [
+              "api/access-client",
+              "api/mint-client",
+              "api/price-client",
+              "api/fees-client",
+              "api/timelock-client",
+              "api/cctp-client"
+            ]
+          },
+          {
+            "group": "Models & Types",
+            "pages": [
+              "api/models/state",
+              "api/models/mint",
+              "api/models/acl",
+              "api/types"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utils/accounts",
+              "api/utils/transactions",
+              "api/utils/pdas"
+            ]
+          },
+          {
+            "group": "React Hooks",
+            "pages": [
+              "api/react/providers",
+              "api/react/hooks"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

@@ -1,0 +1,285 @@
+---
+title: Integrations
+description: Integrate your vault with DeFi protocols on Solana
+---
+
+GLAM vaults can interact with leading DeFi protocols on Solana. This guide covers how to enable and use protocol integrations.
+
+## Overview
+
+The GLAM SDK provides built-in integrations with:
+
+- **Jupiter**: Token swaps and limit orders
+- **Kamino**: Lending, borrowing, and liquidity vaults
+- **Drift**: Perpetual futures and spot trading
+- **Marinade**: Liquid staking
+- **Stake pools**: Native staking
+
+## Enabling protocol integrations
+
+Before using a protocol, you must enable it in your vault's access control:
+
+<Steps>
+  <Step title="Get the integration program ID">
+    Each protocol has a program ID. For example:
+
+    ```typescript
+    import { PublicKey } from "@solana/web3.js";
+
+    // Jupiter program ID
+    const jupiterProgram = new PublicKey("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
+    ```
+  </Step>
+
+  <Step title="Define protocol bitmask">
+    Protocols use bitmasks to represent different operations:
+
+    ```typescript examples/nodejs-app/src/index.ts
+    // Enable multiple protocols with bitwise OR
+    const protocolBitmask = 0b01 | 0b10; // Enable protocols 1 and 2
+    ```
+  </Step>
+
+  <Step title="Enable the protocols">
+    Call `enableProtocols()` to allow the vault to interact with the protocol:
+
+    ```typescript examples/nodejs-app/src/index.ts
+    const txSig = await glamClient.access.enableProtocols(
+      integrationProgram,
+      protocolBitmask,
+      txOptions,
+    );
+
+    console.log("✅ Enable integration successful:", txSig);
+    ```
+  </Step>
+</Steps>
+
+## Jupiter: Token swaps
+
+Jupiter provides the best swap routes across Solana DEXs.
+
+### Performing a swap
+
+```typescript src/client/jupiter.ts
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+
+const inputMint = new PublicKey("So11111111111111111111111111111111111111112"); // SOL
+const outputMint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"); // USDC
+const amount = new BN(1_000_000_000); // 1 SOL
+
+// Get quote from Jupiter
+const quoteResponse = await glamClient.jupiter.jupApi.getQuoteResponse({
+  inputMint: inputMint.toBase58(),
+  outputMint: outputMint.toBase58(),
+  amount: amount.toString(),
+  slippageBps: 50, // 0.5% slippage
+});
+
+// Execute swap
+const txSig = await glamClient.jupiter.swap(
+  {
+    quoteResponse,
+  },
+  txOptions,
+);
+
+console.log("Swap successful:", txSig);
+```
+
+### Using quote parameters
+
+You can also provide quote parameters directly:
+
+```typescript
+const txSig = await glamClient.jupiter.swap(
+  {
+    quoteParams: {
+      inputMint: inputMint.toBase58(),
+      outputMint: outputMint.toBase58(),
+      amount: amount.toString(),
+      slippageBps: 50,
+    },
+  },
+  txOptions,
+);
+```
+
+The SDK automatically:
+- Fetches the best quote from Jupiter
+- Wraps SOL to wSOL if needed
+- Creates output token account if needed
+- Validates the swap using on-chain oracles
+
+## Kamino: Lending protocol
+
+Kamino is a leading lending and liquidity protocol on Solana.
+
+### Deposit to lending
+
+```typescript src/client/kamino/lending.ts
+const reserve = new PublicKey("reserve_address");
+const depositAmount = new BN(100_000_000); // Amount in base units
+
+await glamClient.kamino.lendingDeposit(
+  reserve,
+  depositAmount,
+  txOptions,
+);
+```
+
+### Withdraw from lending
+
+```typescript
+await glamClient.kamino.lendingWithdraw(
+  reserve,
+  withdrawAmount,
+  txOptions,
+);
+```
+
+### Borrow assets
+
+```typescript
+await glamClient.kamino.lendingBorrow(
+  reserve,
+  borrowAmount,
+  txOptions,
+);
+```
+
+### Repay borrowed assets
+
+```typescript
+await glamClient.kamino.lendingRepay(
+  reserve,
+  repayAmount,
+  txOptions,
+);
+```
+
+## Drift: Perpetual futures
+
+Trade perpetual futures on Drift Protocol.
+
+### Initialize Drift user
+
+Before trading, initialize a Drift user account:
+
+```typescript
+await glamClient.drift.initialize(txOptions);
+```
+
+### Deposit collateral
+
+```typescript
+const spotMarketIndex = 0; // USDC market
+const depositAmount = new BN(1000_000_000); // 1000 USDC
+
+await glamClient.drift.deposit(
+  depositAmount,
+  spotMarketIndex,
+  txOptions,
+);
+```
+
+### Open a position
+
+```typescript
+const marketIndex = 0; // SOL-PERP
+const baseAssetAmount = new BN(1_000_000_000); // 1 SOL
+const direction = "long"; // or "short"
+
+await glamClient.drift.openPosition(
+  marketIndex,
+  direction,
+  baseAssetAmount,
+  txOptions,
+);
+```
+
+## Marinade: Liquid staking
+
+Stake SOL and receive mSOL, a liquid staking token:
+
+```typescript
+const stakeAmount = new BN(10 * LAMPORTS_PER_SOL); // 10 SOL
+
+await glamClient.marinade.deposit(
+  stakeAmount,
+  txOptions,
+);
+```
+
+Unstake mSOL:
+
+```typescript
+const msolAmount = new BN(10_000_000_000); // 10 mSOL
+
+await glamClient.marinade.withdraw(
+  msolAmount,
+  txOptions,
+);
+```
+
+## Setting protocol policies
+
+You can configure policies for protocol interactions, such as allowlisting transfer destinations:
+
+```typescript examples/nodejs-app/src/index.ts
+import { TransferPolicy } from "@glamsystems/glam-sdk";
+
+// Fetch existing policy or create new one
+const policy = await glamClient.fetchProtocolPolicy(
+  glamClient.extSplProgram.programId,
+  0b01,
+  TransferPolicy,
+) ?? new TransferPolicy([]);
+
+// Add destination to allowlist
+const allowedDestination = new PublicKey("destination_address");
+policy.allowlist.push(allowedDestination);
+
+// Set the updated policy
+const txSig = await glamClient.access.setProtocolPolicy(
+  glamClient.extSplProgram.programId,
+  0b01,
+  policy.encode(),
+  txOptions,
+);
+
+console.log("Policy updated:", txSig);
+```
+
+## Disabling protocols
+
+To revoke access to a protocol:
+
+```typescript src/client/access.ts
+const txSig = await glamClient.access.disableProtocols(
+  integrationProgram,
+  protocolBitmask,
+  txOptions,
+);
+```
+
+## Best practices
+
+- Always enable protocols before attempting to use them
+- Use slippage protection on swaps (recommended 0.5-1%)
+- Monitor oracle prices for large swaps
+- Set protocol policies to restrict unauthorized actions
+- Test integrations on devnet before mainnet
+- Use appropriate position sizing for leveraged protocols
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Access control" href="/guides/access-control" icon="shield">
+    Manage permissions and delegate access
+  </Card>
+  <Card title="Managing assets" href="/guides/managing-assets" icon="coins">
+    Learn about deposits and withdrawals
+  </Card>
+</CardGroup>

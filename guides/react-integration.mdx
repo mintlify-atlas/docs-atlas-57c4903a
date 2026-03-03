@@ -1,0 +1,437 @@
+---
+title: React integration
+description: Build vault UIs with React hooks and providers
+---
+
+The GLAM SDK provides React hooks and providers to build web applications for managing vaults.
+
+## Installation
+
+Install the required dependencies:
+
+```bash
+npm install @glamsystems/glam-sdk @solana/wallet-adapter-react @tanstack/react-query jotai
+```
+
+## Setup providers
+
+Wrap your application with the necessary providers:
+
+<Steps>
+  <Step title="Configure wallet adapter">
+    Set up Solana wallet connection:
+
+    ```tsx
+    import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
+    import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
+    import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+    import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
+    import { useMemo } from "react";
+
+    export function WalletProviders({ children }: { children: React.ReactNode }) {
+      const network = WalletAdapterNetwork.Mainnet;
+      const endpoint = "https://api.mainnet-beta.solana.com";
+
+      const wallets = useMemo(
+        () => [new PhantomWalletAdapter()],
+        [network],
+      );
+
+      return (
+        <ConnectionProvider endpoint={endpoint}>
+          <WalletProvider wallets={wallets} autoConnect>
+            <WalletModalProvider>
+              {children}
+            </WalletModalProvider>
+          </WalletProvider>
+        </ConnectionProvider>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Add cluster provider">
+    Manage network selection:
+
+    ```tsx src/react/cluster-provider.tsx
+    import { ClusterProvider } from "@glamsystems/glam-sdk/react";
+
+    export function AppProviders({ children }: { children: React.ReactNode }) {
+      return (
+        <WalletProviders>
+          <ClusterProvider>
+            {children}
+          </ClusterProvider>
+        </WalletProviders>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Add React Query">
+    Enable data fetching and caching:
+
+    ```tsx
+    import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 1000 * 30, // 30 seconds
+          refetchOnWindowFocus: false,
+        },
+      },
+    });
+
+    export function AppProviders({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <WalletProviders>
+            <ClusterProvider>
+              {children}
+            </ClusterProvider>
+          </WalletProviders>
+        </QueryClientProvider>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Add GLAM provider">
+    Provide vault context throughout your app:
+
+    ```tsx src/react/glam.tsx
+    import { GlamProvider } from "@glamsystems/glam-sdk/react";
+
+    export function AppProviders({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <WalletProviders>
+            <ClusterProvider>
+              <GlamProvider>
+                {children}
+              </GlamProvider>
+            </ClusterProvider>
+          </WalletProviders>
+        </QueryClientProvider>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+## Using the GLAM hook
+
+Access vault data and operations with the `useGlam()` hook:
+
+```tsx src/react/glam.tsx
+import { useGlam } from "@glamsystems/glam-sdk/react";
+
+export function VaultDashboard() {
+  const {
+    glamClient,
+    vault,
+    vaultHoldings,
+    activeGlamState,
+    delegateAcls,
+    integrationAcls,
+    refresh,
+  } = useGlam();
+
+  if (!activeGlamState?.pubkey) {
+    return <div>No vault selected</div>;
+  }
+
+  return (
+    <div>
+      <h1>{activeGlamState.name}</h1>
+      <p>Address: {activeGlamState.address}</p>
+      <p>SOL Balance: {vault.balanceLamports / 1e9} SOL</p>
+      <p>Total Value: ${vaultHoldings?.totalValue || 0}</p>
+    </div>
+  );
+}
+```
+
+### Available properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `glamClient` | `GlamClient` | SDK client instance |
+| `vault` | `Vault` | Vault balances and token accounts |
+| `vaultHoldings` | `VaultHoldings` | Priced positions and total value |
+| `activeGlamState` | `GlamStateCache` | Currently selected vault |
+| `glamStatesList` | `GlamStateCache[]` | All accessible vaults |
+| `delegateAcls` | `DelegateAcl[]` | Delegate permissions |
+| `integrationAcls` | `IntegrationAcl[]` | Protocol permissions |
+| `jupTokenList` | `JupTokenList` | Token metadata from Jupiter |
+| `driftMarketConfigs` | `DriftMarketConfigs` | Drift market data |
+| `wsConnected` | `boolean` | WebSocket connection status |
+| `setActiveGlamState` | `(state: GlamStateCache) => void` | Switch active vault |
+| `refresh` | `() => Promise<void>` | Refresh vault data |
+
+## Displaying vault balances
+
+Show token balances with real-time updates:
+
+```tsx src/react/glam.tsx
+import { useGlam } from "@glamsystems/glam-sdk/react";
+
+export function VaultBalances() {
+  const { vault, wsConnected } = useGlam();
+
+  return (
+    <div>
+      <div>
+        Status: {wsConnected ? "🟢 Live" : "⚠️ Polling"}
+      </div>
+
+      <h2>SOL Balance</h2>
+      <p>{(vault.balanceLamports / 1e9).toFixed(4)} SOL</p>
+
+      <h2>Token Accounts</h2>
+      <ul>
+        {vault.tokenAccounts?.map((account) => (
+          <li key={account.pubkey.toBase58()}>
+            {account.mint.toBase58()}: {account.uiAmount}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+The SDK automatically:
+- Subscribes to vault account changes via WebSocket
+- Falls back to polling if WebSocket is unavailable
+- Debounces rapid updates for optimal performance
+
+## Managing multiple vaults
+
+Switch between multiple vaults:
+
+```tsx src/react/glam.tsx
+import { useGlam } from "@glamsystems/glam-sdk/react";
+
+export function VaultSelector() {
+  const { glamStatesList, activeGlamState, setActiveGlamState } = useGlam();
+
+  return (
+    <select
+      value={activeGlamState?.address || ""}
+      onChange={(e) => {
+        const selected = glamStatesList.find(
+          (state) => state.address === e.target.value
+        );
+        if (selected) {
+          setActiveGlamState(selected);
+        }
+      }}
+    >
+      {glamStatesList.map((state) => (
+        <option key={state.address} value={state.address}>
+          {state.name} ({state.product})
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+## Performing vault operations
+
+Execute transactions from React components:
+
+```tsx
+import { useGlam } from "@glamsystems/glam-sdk/react";
+import { useState } from "react";
+import { BN } from "@coral-xyz/anchor";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+export function DepositForm() {
+  const { glamClient, refresh } = useGlam();
+  const [amount, setAmount] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleDeposit = async () => {
+    if (!amount) return;
+
+    setLoading(true);
+    try {
+      const lamports = new BN(parseFloat(amount) * LAMPORTS_PER_SOL);
+      const txSig = await glamClient.vault.depositSol(lamports, true);
+      console.log("Deposit successful:", txSig);
+
+      // Refresh vault data
+      await refresh();
+      setAmount("");
+    } catch (error) {
+      console.error("Deposit failed:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Amount in SOL"
+      />
+      <button onClick={handleDeposit} disabled={loading}>
+        {loading ? "Depositing..." : "Deposit SOL"}
+      </button>
+    </div>
+  );
+}
+```
+
+## Using cluster provider
+
+Manage network selection:
+
+```tsx src/react/cluster-provider.tsx
+import { useCluster } from "@glamsystems/glam-sdk/react";
+
+export function ClusterSelector() {
+  const { cluster, clusters, setCluster } = useCluster();
+
+  return (
+    <select
+      value={cluster.name}
+      onChange={(e) => {
+        const selected = clusters.find((c) => c.name === e.target.value);
+        if (selected) {
+          setCluster(selected);
+        }
+      }}
+    >
+      {clusters.map((c) => (
+        <option key={c.name} value={c.name}>
+          {c.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+## Real-time balance subscriptions
+
+The SDK automatically manages WebSocket subscriptions for real-time updates:
+
+```tsx src/react/useVaultBalanceSubscription.ts
+import { useGlam } from "@glamsystems/glam-sdk/react";
+import { useEffect, useState } from "react";
+
+export function LiveVaultBalance() {
+  const { vault, wsConnected } = useGlam();
+  const [lastUpdate, setLastUpdate] = useState<Date>();
+
+  useEffect(() => {
+    setLastUpdate(new Date());
+  }, [vault.balanceLamports]);
+
+  return (
+    <div>
+      <h3>Balance: {(vault.balanceLamports / 1e9).toFixed(4)} SOL</h3>
+      <p>
+        {wsConnected ? "🟢 Live updates" : "⚠️ Polling mode"}
+      </p>
+      {lastUpdate && (
+        <small>Last updated: {lastUpdate.toLocaleTimeString()}</small>
+      )}
+    </div>
+  );
+}
+```
+
+The subscription:
+- Monitors vault and all token accounts (up to 20 accounts)
+- Debounces updates to prevent excessive re-renders
+- Automatically unsubscribes when component unmounts
+- Falls back to polling if WebSocket is disabled or unavailable
+
+## Complete example
+
+Here's a complete vault dashboard:
+
+```tsx
+import { useGlam, useCluster } from "@glamsystems/glam-sdk/react";
+import { BN } from "@coral-xyz/anchor";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { useState } from "react";
+
+export function VaultDashboard() {
+  const { glamClient, vault, activeGlamState, refresh, wsConnected } = useGlam();
+  const { cluster } = useCluster();
+  const [depositAmount, setDepositAmount] = useState("");
+
+  const handleDeposit = async () => {
+    const lamports = new BN(parseFloat(depositAmount) * LAMPORTS_PER_SOL);
+    await glamClient.vault.depositSol(lamports, true);
+    await refresh();
+    setDepositAmount("");
+  };
+
+  if (!activeGlamState) {
+    return <div>No vault selected</div>;
+  }
+
+  return (
+    <div>
+      <h1>{activeGlamState.name}</h1>
+      <p>Network: {cluster.name}</p>
+      <p>Status: {wsConnected ? "🟢 Live" : "⚠️ Polling"}</p>
+
+      <section>
+        <h2>Balance</h2>
+        <p>{(vault.balanceLamports / 1e9).toFixed(4)} SOL</p>
+      </section>
+
+      <section>
+        <h2>Token Accounts</h2>
+        {vault.tokenAccounts?.map((account) => (
+          <div key={account.pubkey.toBase58()}>
+            {account.uiAmount} tokens
+          </div>
+        ))}
+      </section>
+
+      <section>
+        <h2>Deposit</h2>
+        <input
+          type="number"
+          value={depositAmount}
+          onChange={(e) => setDepositAmount(e.target.value)}
+          placeholder="Amount in SOL"
+        />
+        <button onClick={handleDeposit}>Deposit</button>
+      </section>
+    </div>
+  );
+}
+```
+
+## Best practices
+
+- Always check if `activeGlamState` exists before accessing vault data
+- Use the `refresh()` function after mutations to update UI
+- Handle loading and error states in your components
+- Leverage WebSocket subscriptions for real-time updates
+- Use React Query's caching to minimize RPC calls
+- Test with different network conditions (polling vs WebSocket)
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Creating vaults" href="/guides/creating-vaults" icon="vault">
+    Learn how to create vaults programmatically
+  </Card>
+  <Card title="Managing assets" href="/guides/managing-assets" icon="coins">
+    Handle deposits, withdrawals, and transfers
+  </Card>
+</CardGroup>

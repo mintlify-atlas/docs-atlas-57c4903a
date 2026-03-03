@@ -1,0 +1,177 @@
+---
+title: React hooks
+description: Custom React hooks for GLAM SDK
+---
+
+## useGlam
+
+Accesses the GLAM provider context.
+
+```tsx
+import { useGlam } from '@glam/sdk/react';
+
+function MyComponent() {
+  const { glamClient, vault, activeGlamState } = useGlam();
+  
+  // Use glamClient to interact with vault
+  // Access vault balances and token accounts
+  // Get active vault state
+}
+```
+
+See [GlamProvider context value](/api/react/providers#context-value) for all available properties.
+
+---
+
+## useCluster
+
+Accesses the cluster provider context.
+
+```tsx
+import { useCluster } from '@glam/sdk/react';
+
+function NetworkSwitcher() {
+  const { cluster, clusters, setCluster } = useCluster();
+  
+  return (
+    <select 
+      value={cluster.name} 
+      onChange={(e) => {
+        const selected = clusters.find(c => c.name === e.target.value);
+        if (selected) setCluster(selected);
+      }}
+    >
+      {clusters.map(c => (
+        <option key={c.name} value={c.name}>
+          {c.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+See [ClusterProvider context value](/api/react/providers#context-value-1) for all available properties.
+
+---
+
+## useVaultBalanceSubscription
+
+Internal hook that subscribes to vault balance changes via WebSocket.
+
+```tsx
+import { useVaultBalanceSubscription } from '@glam/sdk/react';
+
+function useCustomVaultSubscription(vaultPda: PublicKey | undefined) {
+  const { connection } = useConnection();
+  const queryClient = useQueryClient();
+  const [wsConnected, setWsConnected] = useState(false);
+
+  useVaultBalanceSubscription({
+    connection,
+    queryClient,
+    vaultPda,
+    pk: vaultPda?.toBase58() ?? '',
+    cluster: 'mainnet-beta',
+    tokenAccounts: [],
+    enabled: !!vaultPda,
+    onWsStatusChange: setWsConnected,
+  });
+
+  return { wsConnected };
+}
+```
+
+### Options
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ParamField path="queryClient" type="QueryClient" required>
+  TanStack Query client instance
+</ParamField>
+
+<ParamField path="vaultPda" type="PublicKey | undefined" required>
+  Vault PDA to subscribe to
+</ParamField>
+
+<ParamField path="pk" type="string" required>
+  Vault state pubkey as base58 string (for query key scoping)
+</ParamField>
+
+<ParamField path="cluster" type="string" required>
+  Cluster network string (for query key scoping)
+</ParamField>
+
+<ParamField path="tokenAccounts" type="TokenAccount[]" required>
+  Token accounts to subscribe to (in addition to vault PDA)
+</ParamField>
+
+<ParamField path="enabled" type="boolean" required>
+  Whether subscription is enabled
+</ParamField>
+
+<ParamField path="onWsStatusChange" type="(connected: boolean) => void" required>
+  Callback when WebSocket connection status changes
+</ParamField>
+
+### Behavior
+
+- Subscribes to vault PDA + up to 19 token accounts (max 20 total subscriptions)
+- Automatically invalidates balance and holdings queries on account changes
+- Uses debounced invalidation (2 second window) to avoid excessive refetches
+- Falls back to polling when WebSocket is disabled or unavailable
+- Can be disabled via `NEXT_PUBLIC_WEBSOCKET_DISABLED` or `WEBSOCKET_DISABLED` environment variable
+
+---
+
+## Query keys
+
+Query key factory for TanStack Query. Import from `@glam/sdk/react`.
+
+```tsx
+import { queryKeys } from '@glam/sdk/react';
+
+// Vault-scoped keys
+queryKeys.vault.all(pk, cluster)           // All vault queries
+queryKeys.vault.balances(pk, cluster)      // Vault balances
+queryKeys.vault.holdings(pk, cluster)      // Vault holdings
+queryKeys.vault.acls(pk, cluster)          // Vault ACLs
+queryKeys.vault.driftUsers(pk, cluster)    // Drift users
+queryKeys.vault.stakes(pk, cluster)        // Stake accounts
+queryKeys.vault.holders(mint, cluster)     // Token holders
+
+// Global keys
+queryKeys.global.allStates(cluster)        // All vault states
+queryKeys.global.jupTokens(cluster)        // Jupiter token list
+queryKeys.global.driftMarkets(cluster)     // Drift markets
+
+// Wallet keys
+queryKeys.wallet.balances(pk, cluster)     // Wallet balances
+
+// Transaction keys
+queryKeys.tx.status(signature)             // Transaction status
+```
+
+### Invalidation scopes
+
+Helper function for invalidating related queries:
+
+```tsx
+import { getInvalidationKeys, type InvalidationScope } from '@glam/sdk/react';
+
+const scopes: InvalidationScope[] = ['balance', 'acls'];
+const keys = getInvalidationKeys(scopes, {
+  vaultPk: vault.pubkey.toBase58(),
+  walletPk: wallet.publicKey.toBase58(),
+  cluster: 'mainnet-beta',
+});
+
+// Invalidate all keys
+for (const key of keys) {
+  queryClient.invalidateQueries({ queryKey: key });
+}
+```
+
+Available scopes: `'balance'`, `'drift'`, `'acls'`, `'wallet'`, `'graph'`, `'stakes'`, `'all'`

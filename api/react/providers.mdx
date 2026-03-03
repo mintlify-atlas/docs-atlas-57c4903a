@@ -1,0 +1,205 @@
+---
+title: React providers
+description: Context providers for GLAM SDK in React applications
+---
+
+## GlamProvider
+
+Main provider component that sets up the GLAM client and manages vault state.
+
+```tsx
+import { GlamProvider } from '@glam/sdk/react';
+
+function App() {
+  return (
+    <GlamProvider>
+      {/* Your app */}
+    </GlamProvider>
+  );
+}
+```
+
+### Dependencies
+
+Must be wrapped by:
+- `@solana/wallet-adapter-react` providers (`WalletProvider`, `ConnectionProvider`)
+- `@tanstack/react-query` provider (`QueryClientProvider`)
+- `ClusterProvider` (from `@glam/sdk/react`)
+
+### Context value
+
+Access via `useGlam()` hook:
+
+<ResponseField name="glamClient" type="GlamClient">
+  Configured GLAM client instance
+</ResponseField>
+
+<ResponseField name="vault" type="Vault">
+  Current vault balances and token accounts
+</ResponseField>
+
+<ResponseField name="vaultHoldings" type="VaultHoldings | undefined">
+  Priced vault holdings (positions across protocols)
+</ResponseField>
+
+<ResponseField name="activeGlamState" type="GlamStateCache | undefined">
+  Currently selected vault state
+</ResponseField>
+
+<ResponseField name="glamStatesList" type="GlamStateCache[]">
+  List of vaults accessible to connected wallet (as owner or delegate)
+</ResponseField>
+
+<ResponseField name="delegateAcls" type="DelegateAcl[]">
+  Delegate access control lists for active vault
+</ResponseField>
+
+<ResponseField name="integrationAcls" type="IntegrationAcl[]">
+  Integration access control lists for active vault
+</ResponseField>
+
+<ResponseField name="allGlamStates" type="StateModel[]">
+  All vault states on the network
+</ResponseField>
+
+<ResponseField name="jupTokenList" type="JupTokenList | undefined">
+  Jupiter token list with metadata and prices (mainnet only)
+</ResponseField>
+
+<ResponseField name="driftMarketConfigs" type="DriftMarketConfigs | undefined">
+  Drift market configurations (mainnet only)
+</ResponseField>
+
+<ResponseField name="wsConnected" type="boolean">
+  WebSocket connection status for vault balance subscriptions
+</ResponseField>
+
+<ResponseField name="setActiveGlamState" type="(state: GlamStateCache) => void">
+  Sets the active vault
+</ResponseField>
+
+<ResponseField name="refresh" type="() => Promise<void>">
+  Refreshes active vault data from onchain
+</ResponseField>
+
+<ResponseField name="refetchGlamStates" type="() => Promise<void>">
+  Refetches all vault states
+</ResponseField>
+
+---
+
+## ClusterProvider
+
+Manages Solana cluster/network configuration.
+
+```tsx
+import { ClusterProvider } from '@glam/sdk/react';
+
+function App() {
+  return (
+    <ClusterProvider>
+      <GlamProvider>
+        {/* Your app */}
+      </GlamProvider>
+    </ClusterProvider>
+  );
+}
+```
+
+### Context value
+
+Access via `useCluster()` hook:
+
+<ResponseField name="cluster" type="Cluster">
+  Current active cluster
+</ResponseField>
+
+<ResponseField name="clusters" type="Cluster[]">
+  Available clusters
+</ResponseField>
+
+<ResponseField name="addCluster" type="(cluster: Cluster) => void">
+  Adds a custom cluster
+</ResponseField>
+
+<ResponseField name="deleteCluster" type="(cluster: Cluster) => void">
+  Deletes a custom cluster
+</ResponseField>
+
+<ResponseField name="setCluster" type="(cluster: Cluster) => void">
+  Sets the active cluster
+</ResponseField>
+
+<ResponseField name="getExplorerUrl" type="(path: string) => string">
+  Generates Solscan explorer URL for the current cluster
+</ResponseField>
+
+### Cluster type
+
+<ResponseField name="name" type="string">
+  Cluster name (e.g., "mainnet-beta", "devnet")
+</ResponseField>
+
+<ResponseField name="endpoint" type="string">
+  RPC endpoint URL
+</ResponseField>
+
+<ResponseField name="network" type="ClusterNetwork | undefined">
+  Network enum value
+</ResponseField>
+
+<ResponseField name="active" type="boolean | undefined">
+  Whether this cluster is currently active
+</ResponseField>
+
+---
+
+## Types
+
+### Vault
+
+<ResponseField name="pubkey" type="PublicKey">
+  Vault PDA
+</ResponseField>
+
+<ResponseField name="balanceLamports" type="number">
+  SOL balance in lamports
+</ResponseField>
+
+<ResponseField name="uiAmount" type="number">
+  SOL balance in SOL (with decimals)
+</ResponseField>
+
+<ResponseField name="tokenAccounts" type="TokenAccount[]">
+  Token accounts owned by vault
+</ResponseField>
+
+<ResponseField name="driftUsers" type="DriftUser[] | undefined">
+  Drift user accounts (mainnet only)
+</ResponseField>
+
+### GlamStateCache
+
+<ResponseField name="address" type="string">
+  State account address as base58 string
+</ResponseField>
+
+<ResponseField name="pubkey" type="PublicKey">
+  State account public key
+</ResponseField>
+
+<ResponseField name="owner" type="PublicKey">
+  Vault owner
+</ResponseField>
+
+<ResponseField name="sparkleKey" type="string">
+  Unique identifier for vault
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Vault name
+</ResponseField>
+
+<ResponseField name="product" type="'Mint' | 'Vault' | 'TokenizedVault' | 'SingleAssetVault'">
+  Vault product type
+</ResponseField>

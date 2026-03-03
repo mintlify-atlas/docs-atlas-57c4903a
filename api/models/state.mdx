@@ -1,0 +1,214 @@
+---
+title: State models
+description: State account models for GLAM vaults
+---
+
+## StateModel
+
+Enriched state model built from multiple onchain accounts. Represents the complete state of a GLAM vault.
+
+<ResponseField name="id" type="PublicKey" required>
+  State account public key
+</ResponseField>
+
+<ResponseField name="vault" type="PublicKey" required>
+  Vault PDA associated with this state
+</ResponseField>
+
+<ResponseField name="accountType" type="StateAccountType" required>
+  Type of state account (vault, tokenizedVault, mint, or singleAssetVault)
+</ResponseField>
+
+<ResponseField name="name" type="number[]" required>
+  Raw vault name as character codes
+</ResponseField>
+
+<ResponseField name="nameStr" type="string">
+  Vault name as string (getter)
+</ResponseField>
+
+<ResponseField name="uri" type="string | null">
+  Metadata URI
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean" required>
+  Whether the vault is enabled
+</ResponseField>
+
+<ResponseField name="assets" type="PublicKey[]" required>
+  Allowed asset mints for the vault
+</ResponseField>
+
+<ResponseField name="created" type="CreatedModel" required>
+  Creation metadata
+</ResponseField>
+
+<ResponseField name="owner" type="PublicKey" required>
+  Vault owner public key
+</ResponseField>
+
+<ResponseField name="portfolioManagerName" type="number[]" required>
+  Portfolio manager name as character codes
+</ResponseField>
+
+<ResponseField name="borrowable" type="PublicKey[] | null">
+  Borrowable asset mints
+</ResponseField>
+
+<ResponseField name="reduceOnly" type="boolean | null">
+  Whether the vault is in reduce-only mode
+</ResponseField>
+
+<ResponseField name="anyLst" type="boolean | null">
+  Whether any LST is allowed
+</ResponseField>
+
+<ResponseField name="timelockDuration" type="number" required>
+  Timelock duration in seconds
+</ResponseField>
+
+<ResponseField name="integrationAcls" type="IntegrationAcl[]" required>
+  Integration access control lists
+</ResponseField>
+
+<ResponseField name="delegateAcls" type="DelegateAcl[]" required>
+  Delegate access control lists
+</ResponseField>
+
+<ResponseField name="feeStructure" type="FeeStructure | null">
+  Fee configuration
+</ResponseField>
+
+<ResponseField name="mint" type="PublicKey | null">
+  Associated share mint (for tokenized vaults)
+</ResponseField>
+
+<ResponseField name="mintModel" type="MintModel | null">
+  Associated mint model (for tokenized vaults)
+</ResponseField>
+
+<ResponseField name="baseAssetMint" type="PublicKey" required>
+  Base asset mint (e.g., USDC or SOL)
+</ResponseField>
+
+<ResponseField name="baseAssetTokenProgram" type="number" required>
+  Token program ID for base asset (0 = Token Program, 1 = Token-2022)
+</ResponseField>
+
+<ResponseField name="baseAssetTokenProgramId" type="PublicKey">
+  Token program PublicKey for base asset (getter)
+</ResponseField>
+
+<ResponseField name="baseAssetDecimals" type="number" required>
+  Decimals for base asset
+</ResponseField>
+
+<ResponseField name="pendingStateUpdates" type="any | null">
+  Pending state updates (during timelock)
+</ResponseField>
+
+<ResponseField name="pendingMintUpdates" type="any | null">
+  Pending mint updates (during timelock)
+</ResponseField>
+
+<ResponseField name="timelockExpiresAt" type="number | null">
+  Timestamp when timelock expires
+</ResponseField>
+
+<ResponseField name="externalPositions" type="PublicKey[]" required>
+  External position accounts
+</ResponseField>
+
+<ResponseField name="pricedProtocols" type="any[]" required>
+  Priced protocol positions
+</ResponseField>
+
+<ResponseField name="productType" type="string">
+  Human-readable product type (getter)
+</ResponseField>
+
+<ResponseField name="launchDate" type="string">
+  ISO date string of vault creation (getter)
+</ResponseField>
+
+<ResponseField name="sparkleKey" type="string">
+  Unique key for vault identification (getter)
+</ResponseField>
+
+<ResponseField name="assetsForPricing" type="PublicKey[]">
+  Union set of assets and borrowable assets (getter)
+</ResponseField>
+
+### Static methods
+
+<ResponseField name="fromOnchainAccounts" type="function">
+  ```typescript
+  static fromOnchainAccounts(
+    statePda: PublicKey,
+    stateAccount: StateAccount,
+    staging: boolean,
+    glamMint?: Mint,
+    requestQueue?: RequestQueue,
+  ): StateModel
+  ```
+  
+  Builds a StateModel from onchain data.
+</ResponseField>
+
+---
+
+## StateAccountType
+
+Enum representing the type of state account.
+
+<ResponseField name="VAULT" type="{ vault: {} }">
+  Standard vault type
+</ResponseField>
+
+<ResponseField name="TOKENIZED_VAULT" type="{ tokenizedVault: {} }">
+  Tokenized vault with share tokens
+</ResponseField>
+
+<ResponseField name="MINT" type="{ mint: {} }">
+  Mint-only account
+</ResponseField>
+
+<ResponseField name="SINGLE_ASSET_VAULT" type="{ singleAssetVault: {} }">
+  Single asset vault type
+</ResponseField>
+
+### Static methods
+
+<ResponseField name="equals" type="function">
+  ```typescript
+  static equals(a: StateAccountType, b: StateAccountType): boolean
+  ```
+  
+  Compares two StateAccountType instances.
+</ResponseField>
+
+<ResponseField name="from" type="function">
+  ```typescript
+  static from(s: string): StateAccountType
+  ```
+  
+  Creates StateAccountType from string ("vault", "tokenizedVault", "singleAssetVault", or "mint").
+</ResponseField>
+
+---
+
+## CreatedModel
+
+Metadata about vault creation.
+
+<ResponseField name="key" type="number[]" required>
+  Initialization key as byte array
+</ResponseField>
+
+<ResponseField name="createdBy" type="PublicKey" required>
+  Public key of vault creator
+</ResponseField>
+
+<ResponseField name="createdAt" type="BN" required>
+  Unix timestamp of creation
+</ResponseField>

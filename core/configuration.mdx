@@ -1,0 +1,407 @@
+---
+title: Configuration
+description: Configuring the GLAM SDK for your application
+---
+
+## GlamClientConfig
+
+The SDK is configured through the `GlamClientConfig` type:
+
+```typescript
+type GlamClientConfig = {
+  provider?: Provider;                       // Anchor provider
+  wallet?: Wallet;                           // Wallet instance
+  cluster?: ClusterNetwork;                  // Network selection
+  statePda?: PublicKey;                      // Vault to connect to
+  jupiterApiKey?: string;                    // Jupiter API key
+  jupiterApiClient?: JupiterApiClient;       // Custom Jupiter client
+  useStaging?: boolean;                      // Use staging programs
+};
+```
+
+## Basic setup
+
+The simplest configuration uses Anchor's environment provider:
+
+```typescript
+import { GlamClient } from '@glam/sdk';
+
+// Uses Anchor.toml and ANCHOR_WALLET env variable
+const client = new GlamClient();
+```
+
+This automatically:
+- Reads RPC endpoint from `Anchor.toml` or `ANCHOR_PROVIDER_URL`
+- Uses wallet from `ANCHOR_WALLET` environment variable
+- Detects cluster from RPC endpoint
+- Sets commitment to `"confirmed"`
+
+## Provider configuration
+
+### Using an Anchor provider
+
+```typescript
+import { AnchorProvider } from '@coral-xyz/anchor';
+import { Connection } from '@solana/web3.js';
+
+const connection = new Connection(
+  'https://api.mainnet-beta.solana.com',
+  { commitment: 'confirmed' }
+);
+
+const provider = new AnchorProvider(
+  connection,
+  wallet,
+  { commitment: 'confirmed', preflightCommitment: 'confirmed' }
+);
+
+const client = new GlamClient({ provider });
+```
+
+### Using a wallet
+
+If you only provide a wallet, the SDK creates a provider from environment variables:
+
+```typescript
+import { Wallet } from '@coral-xyz/anchor';
+import { Keypair } from '@solana/web3.js';
+
+const keypair = Keypair.fromSecretKey(secretKey);
+const wallet = new Wallet(keypair);
+
+const client = new GlamClient({ wallet });
+// Uses RPC from ANCHOR_PROVIDER_URL or Anchor.toml
+```
+
+## Network selection
+
+### Explicit cluster configuration
+
+```typescript
+import { ClusterNetwork } from '@glam/sdk';
+
+const client = new GlamClient({
+  cluster: ClusterNetwork.Mainnet,
+  // ... other config
+});
+```
+
+### Automatic cluster detection
+
+If no cluster is specified, it's detected from the RPC URL:
+
+```typescript
+// Automatically detects devnet
+const devnetProvider = new AnchorProvider(
+  new Connection('https://api.devnet.solana.com'),
+  wallet,
+  { commitment: 'confirmed' }
+);
+
+const client = new GlamClient({ provider: devnetProvider });
+console.log(client.cluster); // ClusterNetwork.Devnet
+```
+
+Detection rules:
+- URL contains `"devnet"` → `ClusterNetwork.Devnet`
+- URL contains `"localhost"` or `"127.0.0.1"` → `ClusterNetwork.Localnet`
+- URL contains `"mainnet"` → `ClusterNetwork.Mainnet`
+
+### Supported networks
+
+```typescript
+enum ClusterNetwork {
+  Mainnet = "mainnet-beta",
+  Testnet = "testnet",
+  Devnet = "devnet",
+  Localnet = "localnet",
+  Custom = "custom"
+}
+```
+
+## Connecting to a vault
+
+Specify the vault to connect to:
+
+```typescript
+import { PublicKey } from '@solana/web3.js';
+
+const client = new GlamClient({
+  statePda: new PublicKey('VauLt...'),
+});
+
+// Access vault operations immediately
+const balance = await client.getVaultBalance();
+```
+
+Or connect after initialization:
+
+```typescript
+const client = new GlamClient();
+
+// Connect to a vault later
+client.statePda = new PublicKey('VauLt...');
+
+if (client.isVaultConnected) {
+  // Safe to use vault operations
+}
+```
+
+## Jupiter configuration
+
+Configure Jupiter integration for token swaps:
+
+```typescript
+const client = new GlamClient({
+  jupiterApiKey: 'your-api-key',
+});
+
+// Swap using Jupiter
+await client.jupiterSwap.swap({
+  inputMint: USDC,
+  outputMint: WSOL,
+  amount: 1_000_000,
+});
+```
+
+Or provide a custom Jupiter client:
+
+```typescript
+import { JupiterApiClient } from '@glam/sdk';
+
+const jupiterClient = new JupiterApiClient({
+  apiKey: 'your-api-key',
+  // ... custom config
+});
+
+const client = new GlamClient({
+  jupiterApiClient,
+});
+```
+
+## Staging environment
+
+Use staging program deployments for testing:
+
+```typescript
+const client = new GlamClient({
+  useStaging: true,
+});
+
+// Uses staging program IDs
+console.log(client.protocolProgram.programId);
+```
+
+<Warning>
+Staging programs are for testing only. Never use staging in production applications.
+</Warning>
+
+## Environment-based configuration
+
+### Node.js / CLI
+
+```typescript
+// .env file
+ANCHOR_PROVIDER_URL=https://api.devnet.solana.com
+ANCHOR_WALLET=/path/to/keypair.json
+
+// code
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+const client = new GlamClient();
+// Automatically uses env variables
+```
+
+### Browser / React
+
+```typescript
+import { useAnchorWallet, useConnection } from '@solana/wallet-adapter-react';
+import { AnchorProvider } from '@coral-xyz/anchor';
+import { useMemo } from 'react';
+
+function useGlamClient() {
+  const { connection } = useConnection();
+  const wallet = useAnchorWallet();
+
+  return useMemo(() => {
+    if (!wallet) return null;
+
+    const provider = new AnchorProvider(
+      connection,
+      wallet,
+      { commitment: 'confirmed' }
+    );
+
+    return new GlamClient({ provider });
+  }, [connection, wallet]);
+}
+```
+
+### Next.js
+
+```typescript
+// app/providers.tsx
+'use client';
+
+import { WalletProvider } from '@solana/wallet-adapter-react';
+import { ConnectionProvider } from '@solana/wallet-adapter-react';
+import { useMemo } from 'react';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const endpoint = useMemo(
+    () => process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com',
+    []
+  );
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={[]} autoConnect>
+        {children}
+      </WalletProvider>
+    </ConnectionProvider>
+  );
+}
+```
+
+## Transaction configuration
+
+Configure transaction behavior globally or per-operation:
+
+```typescript
+// Global: Use mainnet TX RPC for better reliability
+process.env.TX_RPC = 'https://your-dedicated-tx-rpc.com';
+
+// Per-transaction: Configure compute units and fees
+await client.vault.deposit(usdcMint, amount, {
+  computeUnitLimit: 200_000,
+  maxFeeLamports: 100_000,
+  simulate: true,
+});
+```
+
+### Transaction RPC endpoints
+
+On mainnet, the SDK can use a separate RPC for sending transactions:
+
+```typescript
+// Environment variable (recommended)
+process.env.TX_RPC = 'https://mainnet.helius-rpc.com/?api-key=...'
+
+// Or Next.js
+process.env.NEXT_PUBLIC_TX_RPC = 'https://mainnet.helius-rpc.com/?api-key=...'
+```
+
+This allows you to:
+- Use a faster RPC for transaction submission
+- Separate read/write RPC load
+- Optimize for transaction landing
+
+## WebSocket configuration
+
+By default, the SDK uses WebSockets for transaction confirmation. Disable for edge runtimes:
+
+```typescript
+// Disable WebSocket, use polling instead
+process.env.WEBSOCKET_DISABLED = 'true';
+
+// Or in Next.js
+process.env.NEXT_PUBLIC_WEBSOCKET_DISABLED = 'true';
+```
+
+When disabled, the SDK polls transaction status with:
+- 60 retries maximum
+- 1 second delay between retries
+- 60 second total timeout
+
+## Complete example
+
+A production-ready configuration:
+
+```typescript
+import { GlamClient, ClusterNetwork } from '@glam/sdk';
+import { AnchorProvider } from '@coral-xyz/anchor';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { Wallet } from '@coral-xyz/anchor';
+
+// Configure connection
+const connection = new Connection(
+  process.env.RPC_URL || 'https://api.mainnet-beta.solana.com',
+  {
+    commitment: 'confirmed',
+    confirmTransactionInitialTimeout: 60000,
+  }
+);
+
+// Create provider
+const provider = new AnchorProvider(
+  connection,
+  wallet,
+  {
+    commitment: 'confirmed',
+    preflightCommitment: 'confirmed',
+  }
+);
+
+// Initialize client
+const client = new GlamClient({
+  provider,
+  cluster: ClusterNetwork.Mainnet,
+  statePda: new PublicKey(process.env.VAULT_ADDRESS),
+  jupiterApiKey: process.env.JUPITER_API_KEY,
+});
+
+// Set transaction RPC (optional)
+process.env.TX_RPC = process.env.TX_RPC_URL;
+
+export default client;
+```
+
+## Configuration checklist
+
+Before going to production:
+
+<AccordionGroup>
+  <Accordion title="Network configuration">
+    - [ ] RPC endpoint configured
+    - [ ] Cluster explicitly set to `ClusterNetwork.Mainnet`
+    - [ ] TX RPC configured for mainnet
+    - [ ] Connection commitment set to `"confirmed"`
+    - [ ] WebSocket settings appropriate for runtime
+  </Accordion>
+  
+  <Accordion title="Wallet integration">
+    - [ ] Wallet adapter configured
+    - [ ] Auto-connect behavior set
+    - [ ] Wallet change handling implemented
+    - [ ] Disconnection handling implemented
+  </Accordion>
+  
+  <Accordion title="Vault connection">
+    - [ ] State PDA validation
+    - [ ] Vault existence check
+    - [ ] Permission verification
+    - [ ] Error handling for invalid vaults
+  </Accordion>
+  
+  <Accordion title="Security">
+    - [ ] `useStaging: false` (or not set)
+    - [ ] API keys in environment variables
+    - [ ] No hardcoded private keys
+    - [ ] Transaction simulation enabled
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first GLAM application
+  </Card>
+  <Card title="Vaults" icon="vault" href="/core/vaults">
+    Learn about vault operations
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/deposit">
+    View code examples
+  </Card>
+</CardGroup>

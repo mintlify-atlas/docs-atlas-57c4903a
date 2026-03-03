@@ -1,0 +1,98 @@
+---
+title: ACL models
+description: Access control models for integrations and delegates
+---
+
+## IntegrationAcl
+
+Access control list for protocol integrations.
+
+<ResponseField name="integrationProgram" type="PublicKey" required>
+  Integration program public key
+</ResponseField>
+
+<ResponseField name="protocolsBitmask" type="number" required>
+  Bitmask of enabled protocols within this integration
+</ResponseField>
+
+<ResponseField name="protocolPolicies" type="ProtocolPolicy[]" required>
+  Protocol-specific policies
+</ResponseField>
+
+---
+
+## DelegateAcl
+
+Access control list for delegate authorities.
+
+<ResponseField name="pubkey" type="PublicKey" required>
+  Delegate public key
+</ResponseField>
+
+<ResponseField name="integrationPermissions" type="IntegrationPermissions[]" required>
+  Permissions for each integration
+</ResponseField>
+
+<ResponseField name="expiresAt" type="BN" required>
+  Unix timestamp when delegate access expires
+</ResponseField>
+
+---
+
+## IntegrationPermissions
+
+Permissions for a specific integration program.
+
+<ResponseField name="integrationProgram" type="PublicKey" required>
+  Integration program public key
+</ResponseField>
+
+<ResponseField name="protocolPermissions" type="ProtocolPermissions[]" required>
+  Permissions for each protocol within the integration
+</ResponseField>
+
+---
+
+## ProtocolPermissions
+
+Permissions for a specific protocol.
+
+<ResponseField name="protocolBitflag" type="number" required>
+  Protocol identifier bitflag
+</ResponseField>
+
+<ResponseField name="permissionsBitmask" type="BN" required>
+  Bitmask of enabled permissions
+</ResponseField>
+
+---
+
+## ProtocolPolicy
+
+Protocol-specific policy data.
+
+<ResponseField name="protocolBitflag" type="number" required>
+  Protocol identifier bitflag
+</ResponseField>
+
+<ResponseField name="data" type="Buffer" required>
+  Serialized policy data
+</ResponseField>
+
+---
+
+## EmergencyAccessUpdateArgs
+
+Arguments for emergency access control updates.
+
+<ResponseField name="disabledIntegrations" type="PublicKey[]" required>
+  Integration programs to disable
+</ResponseField>
+
+<ResponseField name="disabledDelegates" type="PublicKey[]" required>
+  Delegate public keys to disable
+</ResponseField>
+
+<ResponseField name="stateEnabled" type="boolean | null">
+  Whether to enable or disable the vault state
+</ResponseField>

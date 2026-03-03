@@ -1,0 +1,300 @@
+---
+title: Access control
+description: Manage vault permissions, delegates, and protocol access
+---
+
+Access control in GLAM vaults allows you to manage who can perform operations and which protocols can be used.
+
+## Overview
+
+GLAM provides granular access control through:
+
+- **Owner permissions**: Full control over vault configuration
+- **Delegate permissions**: Grant specific permissions to other wallets
+- **Protocol ACLs**: Enable/disable integrations with DeFi protocols
+- **Emergency access**: Bypass timelock for critical changes
+
+## Vault ownership
+
+### Updating the vault owner
+
+Transfer ownership of your vault to another wallet:
+
+```typescript src/client/state.ts
+import { PublicKey } from "@solana/web3.js";
+
+const newOwner = new PublicKey("new_owner_pubkey");
+
+await glamClient.state.update(
+  {
+    owner: newOwner,
+  },
+  txOptions,
+);
+```
+
+If timelock is enabled, this change will be staged and applied after the timelock period.
+
+### Checking vault owner
+
+```typescript
+const stateAccount = await glamClient.fetchStateAccount();
+console.log("Current owner:", stateAccount.owner.toBase58());
+```
+
+## Delegate permissions
+
+Delegates can perform specific operations on behalf of the vault without being the owner.
+
+### Granting delegate permissions
+
+<Steps>
+  <Step title="Define the delegate and permissions">
+    ```typescript src/client/access.ts
+    import { BN } from "@coral-xyz/anchor";
+    import { PublicKey } from "@solana/web3.js";
+
+    const delegate = new PublicKey("delegate_wallet_address");
+    const integrationProgram = new PublicKey("integration_program_id");
+    const protocolBitflag = 0b01; // Protocol identifier
+    const permissionsBitmask = new BN(0b1111); // Permissions to grant
+    ```
+  </Step>
+
+  <Step title="Grant the permissions">
+    ```typescript src/client/access.ts
+    const txSig = await glamClient.access.grantDelegatePermissions(
+      delegate,
+      integrationProgram,
+      protocolBitflag,
+      permissionsBitmask,
+      txOptions,
+    );
+
+    console.log("Permissions granted:", txSig);
+    ```
+  </Step>
+</Steps>
+
+### Revoking delegate permissions
+
+Remove permissions from a delegate:
+
+```typescript src/client/access.ts
+const txSig = await glamClient.access.revokeDelegatePermissions(
+  delegate,
+  integrationProgram,
+  protocolBitflag,
+  permissionsBitmask,
+  txOptions,
+);
+```
+
+### Viewing delegate ACLs
+
+```typescript src/react/glam.tsx
+const stateAccount = await glamClient.fetchStateAccount();
+const delegateAcls = stateAccount.delegateAcls || [];
+
+delegateAcls.forEach((acl) => {
+  console.log("Delegate:", acl.pubkey.toBase58());
+  console.log("Permissions:", acl.permissions);
+});
+```
+
+## Protocol access control
+
+### Enabling protocols
+
+Allow the vault to interact with a DeFi protocol:
+
+```typescript examples/nodejs-app/src/index.ts
+const integrationProgram = new PublicKey("protocol_program_id");
+const protocolBitmask = 0b01 | 0b10; // Enable multiple protocols
+
+const txSig = await glamClient.access.enableProtocols(
+  integrationProgram,
+  protocolBitmask,
+  txOptions,
+);
+
+console.log("✅ Protocols enabled:", txSig);
+```
+
+### Disabling protocols
+
+Revoke access to a protocol:
+
+```typescript src/client/access.ts
+const txSig = await glamClient.access.disableProtocols(
+  integrationProgram,
+  protocolBitmask,
+  txOptions,
+);
+```
+
+### Setting protocol policies
+
+Configure fine-grained policies for protocol interactions:
+
+```typescript examples/nodejs-app/src/index.ts
+import { TransferPolicy } from "@glamsystems/glam-sdk";
+
+// Create or fetch existing policy
+const policy = await glamClient.fetchProtocolPolicy(
+  glamClient.extSplProgram.programId,
+  0b01,
+  TransferPolicy,
+) ?? new TransferPolicy([]);
+
+// Add allowed destination
+const allowedDestination = new PublicKey("destination_address");
+policy.allowlist.push(allowedDestination);
+
+// Apply the policy
+const txSig = await glamClient.access.setProtocolPolicy(
+  glamClient.extSplProgram.programId,
+  0b01,
+  policy.encode(),
+  txOptions,
+);
+```
+
+### Viewing integration ACLs
+
+```typescript src/react/glam.tsx
+const stateAccount = await glamClient.fetchStateAccount();
+const integrationAcls = stateAccount.integrationAcls || [];
+
+integrationAcls.forEach((acl) => {
+  console.log("Integration program:", acl.programId.toBase58());
+  console.log("Enabled protocols:", acl.protocols);
+});
+```
+
+## Emergency access control
+
+For critical situations, you can bypass timelock restrictions:
+
+```typescript src/client/access.ts
+import { EmergencyAccessUpdateArgs } from "@glamsystems/glam-sdk";
+
+const emergencyArgs = {
+  // Define emergency access parameters
+  owner: new PublicKey("emergency_owner"),
+};
+
+const txSig = await glamClient.access.emergencyAccessUpdate(
+  emergencyArgs,
+  txOptions,
+);
+```
+
+<Warning>
+  Emergency access bypasses timelock. Use only for critical security situations.
+</Warning>
+
+## Timelock configuration
+
+Timelocks add a delay before changes take effect, providing security and transparency.
+
+### Setting timelock duration
+
+```typescript src/client/state.ts
+const timelockDuration = 86400; // 24 hours in seconds
+
+await glamClient.state.update(
+  {
+    timelockDuration,
+  },
+  txOptions,
+);
+```
+
+### Checking pending updates
+
+When timelock is active, updates are staged:
+
+```typescript
+const stateAccount = await glamClient.fetchStateAccount();
+
+if (stateAccount.timelockDuration > 0) {
+  console.log("Timelock enabled:", stateAccount.timelockDuration, "seconds");
+  // Check for pending updates
+}
+```
+
+## Complete access control example
+
+Here's a comprehensive example setting up vault permissions:
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { GlamClient, TransferPolicy } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+const txOptions = { maxFeeLamports: 10_000, useMaxFee: true };
+
+// 1. Enable Jupiter integration
+const jupiterProgram = new PublicKey("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
+await glamClient.access.enableProtocols(
+  jupiterProgram,
+  0b01,
+  txOptions,
+);
+
+// 2. Set transfer policy with allowlist
+const policy = new TransferPolicy([
+  new PublicKey("allowed_destination_1"),
+  new PublicKey("allowed_destination_2"),
+]);
+
+await glamClient.access.setProtocolPolicy(
+  glamClient.extSplProgram.programId,
+  0b01,
+  policy.encode(),
+  txOptions,
+);
+
+// 3. Grant delegate permissions
+const delegate = new PublicKey("delegate_wallet");
+await glamClient.access.grantDelegatePermissions(
+  delegate,
+  jupiterProgram,
+  0b01,
+  new BN(0b1111), // Full permissions
+  txOptions,
+);
+
+// 4. Enable timelock for security
+await glamClient.state.update(
+  {
+    timelockDuration: 86400, // 24 hours
+  },
+  txOptions,
+);
+
+console.log("Access control configured successfully");
+```
+
+## Best practices
+
+- Enable timelock for production vaults to prevent unauthorized rapid changes
+- Use delegate permissions for specific operations rather than sharing owner keys
+- Regularly audit enabled protocols and remove unused integrations
+- Maintain an allowlist for critical operations like token transfers
+- Test access control changes on devnet before applying to mainnet
+- Document all delegates and their permissions
+- Use emergency access only when absolutely necessary
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="React integration" href="/guides/react-integration" icon="react">
+    Build UIs with React hooks and providers
+  </Card>
+  <Card title="Creating vaults" href="/guides/creating-vaults" icon="vault">
+    Learn how to create new vaults
+  </Card>
+</CardGroup>

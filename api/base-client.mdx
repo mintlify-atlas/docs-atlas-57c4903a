@@ -1,0 +1,518 @@
+---
+title: BaseClient
+description: Base client providing core functionality for all GLAM SDK clients
+---
+
+## Overview
+
+`BaseClient` provides core functionality used by all GLAM SDK clients. It manages connections, programs, transactions, and common utilities.
+
+## Constructor
+
+```typescript
+new BaseClient(config?: GlamClientConfig)
+```
+
+<ParamField path="config" type="GlamClientConfig" optional>
+  Configuration options for the client
+  
+  <Expandable title="properties">
+    <ParamField path="provider" type="anchor.Provider" optional>
+      Anchor provider instance. If not provided, uses `anchor.AnchorProvider.env()`
+    </ParamField>
+    <ParamField path="wallet" type="Wallet" optional>
+      Wallet instance for signing transactions
+    </ParamField>
+    <ParamField path="cluster" type="ClusterNetwork" optional>
+      Solana cluster network. Auto-detected from provider URL if not specified
+    </ParamField>
+    <ParamField path="statePda" type="PublicKey" optional>
+      State account public key to connect to a vault
+    </ParamField>
+    <ParamField path="jupiterApiKey" type="string" optional>
+      Jupiter API key for swap operations
+    </ParamField>
+    <ParamField path="jupiterApiClient" type="JupiterApiClient" optional>
+      Custom Jupiter API client instance
+    </ParamField>
+    <ParamField path="useStaging" type="boolean" optional>
+      Use staging programs instead of production
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Properties
+
+### cluster
+
+```typescript
+client.cluster: ClusterNetwork
+```
+
+The Solana cluster network the client is connected to.
+
+### provider
+
+```typescript
+client.provider: anchor.Provider
+```
+
+Anchor provider instance used for RPC calls and transaction signing.
+
+### connection
+
+```typescript
+client.connection: Connection
+```
+
+Solana web3 connection instance.
+
+### signer
+
+```typescript
+client.signer: PublicKey
+```
+
+Public key of the transaction signer from the provider.
+
+### wallet
+
+```typescript
+client.wallet: Wallet
+```
+
+Wallet instance for signing transactions.
+
+### statePda
+
+```typescript
+client.statePda: PublicKey
+```
+
+State account public key. Must be set to interact with a vault.
+
+```typescript
+client.statePda = new PublicKey("...");
+```
+
+### vaultPda
+
+```typescript
+client.vaultPda: PublicKey
+```
+
+Vault account public key, derived from `statePda`.
+
+### mintPda
+
+```typescript
+client.mintPda: PublicKey
+```
+
+Mint account public key, derived from `statePda`.
+
+### escrowPda
+
+```typescript
+client.escrowPda: PublicKey
+```
+
+Escrow account public key, derived from `mintPda`. Used for queued subscriptions/redemptions.
+
+### isVaultConnected
+
+```typescript
+client.isVaultConnected: boolean
+```
+
+Returns `true` if a vault state PDA has been set.
+
+### isMainnet
+
+```typescript
+client.isMainnet: boolean
+```
+
+Returns `true` if connected to mainnet-beta.
+
+## Program accessors
+
+These getters provide access to GLAM program instances. All are lazy-loaded.
+
+### protocolProgram
+
+```typescript
+client.protocolProgram: GlamProtocolProgram
+```
+
+GLAM protocol program for vault state management.
+
+### mintProgram
+
+```typescript
+client.mintProgram: GlamMintProgram
+```
+
+GLAM mint program for share token operations.
+
+### extSplProgram
+
+```typescript
+client.extSplProgram: ExtSplProgram
+```
+
+Extension program for SPL token operations.
+
+### extDriftProgram
+
+```typescript
+client.extDriftProgram: ExtDriftProgram
+```
+
+Extension program for Drift protocol integration.
+
+### extKaminoProgram
+
+```typescript
+client.extKaminoProgram: ExtKaminoProgram
+```
+
+Extension program for Kamino protocol integration.
+
+### extMarinadeProgram
+
+```typescript
+client.extMarinadeProgram: ExtMarinadeProgram
+```
+
+Extension program for Marinade Finance integration.
+
+### extStakePoolProgram
+
+```typescript
+client.extStakePoolProgram: ExtStakePoolProgram
+```
+
+Extension program for SPL stake pool integration.
+
+### extCctpProgram
+
+```typescript
+client.extCctpProgram: ExtCctpProgram
+```
+
+Extension program for CCTP (Circle) integration.
+
+### extOffchainProgram
+
+```typescript
+client.extOffchainProgram: ExtOffchainProgram
+```
+
+Extension program for off-chain operations.
+
+## Transaction methods
+
+### intoVersionedTransaction
+
+```typescript
+async intoVersionedTransaction(
+  tx: Transaction,
+  options: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Converts a legacy transaction into a versioned transaction with compute budget optimization and lookup tables.
+
+<ParamField path="tx" type="Transaction" required>
+  Legacy transaction to convert
+</ParamField>
+
+<ParamField path="options" type="TxOptions" required>
+  <Expandable title="properties">
+    <ParamField path="signer" type="PublicKey" optional>
+      Transaction signer. Defaults to `client.signer`
+    </ParamField>
+    <ParamField path="computeUnitLimit" type="number" optional>
+      Compute unit limit. Auto-calculated via simulation if not provided
+    </ParamField>
+    <ParamField path="getPriorityFeeMicroLamports" type="(tx: VersionedTransaction) => Promise<number>" optional>
+      Function to calculate priority fee
+    </ParamField>
+    <ParamField path="maxFeeLamports" type="number" optional>
+      Maximum fee in lamports
+    </ParamField>
+    <ParamField path="useMaxFee" type="boolean" optional>
+      Use maximum fee limit
+    </ParamField>
+    <ParamField path="preInstructions" type="TransactionInstruction[]" optional>
+      Instructions to prepend
+    </ParamField>
+    <ParamField path="postInstructions" type="TransactionInstruction[]" optional>
+      Instructions to append
+    </ParamField>
+    <ParamField path="lookupTables" type="PublicKey[] | AddressLookupTableAccount[]" optional>
+      Address lookup tables
+    </ParamField>
+    <ParamField path="simulate" type="boolean" optional>
+      Throw error if simulation fails
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<Note>
+This method automatically:
+- Simulates the transaction to compute optimal CU limit
+- Adds compute budget instructions
+- Includes GLAM-specific lookup tables
+- Fetches fresh blockhash
+</Note>
+
+### sendAndConfirm
+
+```typescript
+async sendAndConfirm(
+  tx: VersionedTransaction | Transaction,
+  additionalSigners?: Keypair[]
+): Promise<TransactionSignature>
+```
+
+Signs, sends, and confirms a transaction.
+
+<ParamField path="tx" type="VersionedTransaction | Transaction" required>
+  Transaction to send
+</ParamField>
+
+<ParamField path="additionalSigners" type="Keypair[]" optional>
+  Additional keypair signers
+</ParamField>
+
+Returns the transaction signature.
+
+```typescript
+const tx = await client.intoVersionedTransaction(transaction, {});
+const signature = await client.sendAndConfirm(tx);
+console.log("Transaction:", signature);
+```
+
+<Note>
+This method:
+- Uses a dedicated TX RPC endpoint on mainnet if configured via `TX_RPC` env var
+- Skips preflight since simulation already occurred
+- Waits for confirmation via WebSocket or polling
+- Throws `GlamError` with parsed program logs on failure
+</Note>
+
+## Account data methods
+
+### fetchStateAccount
+
+```typescript
+async fetchStateAccount(statePda?: PublicKey): Promise<StateAccount>
+```
+
+Fetches the raw state account data.
+
+### fetchStateModel
+
+```typescript
+async fetchStateModel(statePda?: PublicKey): Promise<StateModel>
+```
+
+Fetches and builds a complete state model from on-chain accounts.
+
+```typescript
+const state = await client.fetchStateModel();
+console.log("Vault name:", state.nameStr);
+console.log("Assets:", state.assets);
+console.log("Base asset:", state.baseAssetMint);
+```
+
+### fetchGlamStates
+
+```typescript
+async fetchGlamStates(filterOptions?: {
+  owner?: PublicKey;
+  delegate?: PublicKey;
+  type?: string;
+}): Promise<StateModel[]>
+```
+
+Fetches all GLAM vaults with optional filters.
+
+<ParamField path="filterOptions" type="object" optional>
+  <Expandable title="properties">
+    <ParamField path="owner" type="PublicKey" optional>
+      Filter by vault owner
+    </ParamField>
+    <ParamField path="delegate" type="PublicKey" optional>
+      Filter by delegate
+    </ParamField>
+    <ParamField path="type" type="string" optional>
+      Filter by account type (e.g., "tokenizedVault")
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+```typescript
+// Get all vaults owned by a manager
+const vaults = await client.fetchGlamStates({
+  owner: managerPublicKey,
+  type: "tokenizedVault"
+});
+```
+
+### fetchRequestQueue
+
+```typescript
+async fetchRequestQueue(requestQueuePda?: PublicKey): Promise<RequestQueue>
+```
+
+Fetches the request queue for pending subscriptions/redemptions.
+
+### fetchProtocolPolicy
+
+```typescript
+async fetchProtocolPolicy<T>(
+  integProgramId: PublicKey,
+  protocolBitflag: number,
+  policyClass: { decode(buffer: Buffer, staging?: boolean): T }
+): Promise<T | null>
+```
+
+Fetches a specific protocol policy from the state account.
+
+## Balance methods
+
+### getSolAndTokenBalances
+
+```typescript
+async getSolAndTokenBalances(owner: PublicKey): Promise<{
+  balanceLamports: number;
+  uiAmount: number;
+  tokenAccounts: TokenAccount[];
+}>
+```
+
+Returns SOL and all token balances for an owner.
+
+### getVaultBalance
+
+```typescript
+async getVaultBalance(): Promise<number>
+```
+
+Returns vault's SOL balance in SOL units.
+
+### getVaultLamports
+
+```typescript
+async getVaultLamports(): Promise<number>
+```
+
+Returns vault's SOL balance in lamports.
+
+### getVaultTokenBalance
+
+```typescript
+async getVaultTokenBalance(mintPubkey: PublicKey): Promise<{
+  amount: BN;
+  uiAmount: number;
+}>
+```
+
+Returns vault's token balance for a specific mint.
+
+```typescript
+const balance = await client.getVaultTokenBalance(USDC_MINT);
+console.log("USDC balance:", balance.uiAmount);
+```
+
+### getMintTokenBalance
+
+```typescript
+async getMintTokenBalance(owner?: PublicKey): Promise<{
+  amount: BN;
+  uiAmount: number;
+}>
+```
+
+Returns owner's vault share token balance.
+
+## ATA helpers
+
+### getAta
+
+```typescript
+getAta(
+  mint: PublicKey,
+  owner: PublicKey,
+  tokenProgram?: PublicKey
+): PublicKey
+```
+
+Returns the associated token account address for a mint and owner.
+
+### getVaultAta
+
+```typescript
+getVaultAta(mint: PublicKey, tokenProgramId?: PublicKey): PublicKey
+```
+
+Returns vault's associated token account for a mint.
+
+### getMintAta
+
+```typescript
+getMintAta(user?: PublicKey): PublicKey
+```
+
+Returns user's vault share token account.
+
+## Utility methods
+
+### isLockupEnabled
+
+```typescript
+async isLockupEnabled(): Promise<boolean>
+```
+
+Checks if the vault has lockup enabled for share tokens.
+
+## Types
+
+### TxOptions
+
+```typescript
+type TxOptions = {
+  signer?: PublicKey;
+  computeUnitLimit?: number;
+  getPriorityFeeMicroLamports?: (tx: VersionedTransaction) => Promise<number>;
+  maxFeeLamports?: number;
+  useMaxFee?: boolean;
+  preInstructions?: TransactionInstruction[];
+  postInstructions?: TransactionInstruction[];
+  lookupTables?: PublicKey[] | AddressLookupTableAccount[];
+  simulate?: boolean;
+}
+```
+
+### TokenAccount
+
+```typescript
+type TokenAccount = {
+  owner: PublicKey;
+  pubkey: PublicKey;
+  mint: PublicKey;
+  programId: PublicKey;
+  decimals: number;
+  amount: string;
+  uiAmount: number;
+  frozen: boolean;
+}
+```
+
+## Related
+
+- [GlamClient](/api/glam-client) - Main SDK entrypoint
+- [Creating vaults](/guides/creating-vaults) - Vault creation guide

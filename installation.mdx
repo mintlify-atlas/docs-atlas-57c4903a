@@ -1,0 +1,106 @@
+---
+title: Installation
+description: Install the GLAM SDK in your TypeScript or JavaScript project
+---
+
+# Installation
+
+Get started with the GLAM SDK by installing it via your preferred package manager.
+
+## Requirements
+
+<Note>
+The GLAM SDK requires Node.js version 20.20.0 or higher.
+</Note>
+
+Before installing, make sure you have:
+
+- Node.js >= 20.20.0
+- npm, yarn, or pnpm package manager
+- TypeScript (recommended for the best development experience)
+
+## Install the package
+
+Choose your preferred package manager:
+
+<CodeGroup>
+```bash npm
+npm i @glamsystems/glam-sdk
+```
+
+```bash yarn
+yarn add @glamsystems/glam-sdk
+```
+
+```bash pnpm
+pnpm add @glamsystems/glam-sdk
+```
+</CodeGroup>
+
+## Peer dependencies
+
+The SDK has the following key dependencies that will be installed automatically:
+
+- `@solana/web3.js` - Solana web3 library
+- `@coral-xyz/anchor` - Anchor framework for Solana
+- `@solana/spl-token` - SPL token program utilities
+
+These are included as dependencies, so you don't need to install them separately.
+
+## Environment setup
+
+To use the SDK, you'll need access to a Solana RPC endpoint. You can configure this through environment variables or directly in code.
+
+### Using environment variables
+
+Create a `.env` file in your project root:
+
+```bash .env
+ANCHOR_PROVIDER_URL=https://api.devnet.solana.com
+ANCHOR_WALLET=/path/to/your/keypair.json
+```
+
+<Info>
+For development, you can use Solana's public devnet RPC at `https://api.devnet.solana.com`. For production, use a dedicated RPC provider like Helius, Triton, or QuickNode.
+</Info>
+
+### Supported networks
+
+The SDK supports all Solana cluster networks:
+
+- **Mainnet** (`mainnet-beta`) - Production environment
+- **Devnet** (`devnet`) - Development and testing
+- **Testnet** (`testnet`) - Testing environment
+- **Localnet** (`localnet`) - Local validator for development
+- **Custom** - Any custom RPC endpoint
+
+## Verify installation
+
+Create a simple test file to verify the installation:
+
+```typescript test.ts
+import { GlamClient } from '@glamsystems/glam-sdk';
+
+const client = new GlamClient();
+console.log('GLAM SDK initialized successfully!');
+```
+
+Run it:
+
+<CodeGroup>
+```bash npm
+npx tsx test.ts
+```
+
+```bash node
+node --loader ts-node/esm test.ts
+```
+</CodeGroup>
+
+<Note>
+If you see the success message, you're ready to start building with GLAM!
+</Note>
+
+## Next steps
+
+Now that you have the SDK installed, continue to the [quickstart guide](/quickstart) to create your first vault.

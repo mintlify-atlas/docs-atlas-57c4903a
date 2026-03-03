@@ -1,0 +1,267 @@
+---
+title: Managing assets
+description: Deposit, withdraw, and transfer assets in your GLAM vault
+---
+
+This guide covers all asset management operations including deposits, withdrawals, transfers, and token account management.
+
+## Depositing assets
+
+### Depositing SOL
+
+You can deposit SOL into your vault either as native SOL or wrapped SOL (wSOL):
+
+<Steps>
+  <Step title="Deposit as wrapped SOL">
+    The recommended approach is to wrap SOL into wSOL for easier token accounting:
+
+    ```typescript examples/nodejs-app/src/index.ts
+    import { BN } from "@coral-xyz/anchor";
+    import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+    const amount = new BN(1 * LAMPORTS_PER_SOL); // 1 SOL
+
+    const txSig = await glamClient.vault.depositSol(
+      amount,
+      true, // wrap = true
+      txOptions,
+    );
+
+    console.log("✅ Deposit SOL successful:", txSig);
+    ```
+  </Step>
+
+  <Step title="Deposit as native SOL">
+    For certain use cases, you may want to deposit native SOL:
+
+    ```typescript
+    const txSig = await glamClient.vault.depositSol(
+      amount,
+      false, // wrap = false, deposits native SOL
+      txOptions,
+    );
+    ```
+  </Step>
+</Steps>
+
+### Depositing tokens
+
+Deposit SPL tokens or Token-2022 tokens to your vault:
+
+```typescript examples/nodejs-app/src/index.ts
+import { fetchMintAndTokenProgram } from "@glamsystems/glam-sdk";
+
+const tokenMint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"); // USDC
+
+// Fetch mint info to get decimals
+const { mint } = await fetchMintAndTokenProgram(
+  glamClient.provider.connection,
+  tokenMint,
+);
+
+const amount = new BN(100 * 10 ** mint.decimals); // 100 USDC
+
+const txSig = await glamClient.vault.deposit(
+  tokenMint,
+  amount,
+  txOptions,
+);
+
+console.log("✅ Deposit token successful:", txSig);
+```
+
+The SDK automatically:
+- Creates the vault's associated token account if needed
+- Handles both Token Program and Token-2022 Program
+- Transfers tokens from the signer to the vault
+
+## Withdrawing assets
+
+### Transferring tokens
+
+Transfer tokens from the vault to another wallet:
+
+```typescript examples/nodejs-app/src/index.ts
+const destWallet = new PublicKey("recipient_address");
+const tokenMint = new PublicKey("token_mint_address");
+
+const { mint } = await fetchMintAndTokenProgram(
+  glamClient.provider.connection,
+  tokenMint,
+);
+
+const amount = new BN(50 * 10 ** mint.decimals);
+
+const txSig = await glamClient.vault.tokenTransfer(
+  tokenMint,
+  amount,
+  destWallet,
+  txOptions,
+);
+
+console.log("✅ Transfer token successful:", txSig);
+```
+
+### Transferring SOL
+
+Transfer native SOL from the vault:
+
+```typescript src/client/vault.ts
+const recipient = new PublicKey("recipient_address");
+const amount = new BN(0.5 * LAMPORTS_PER_SOL);
+
+const txSig = await glamClient.vault.systemTransfer(
+  amount,
+  recipient,
+  txOptions,
+);
+```
+
+## Wrapping and unwrapping SOL
+
+The SDK provides utilities to convert between native SOL and wSOL:
+
+### Wrap SOL to wSOL
+
+```typescript src/client/vault.ts
+const amount = new BN(1 * LAMPORTS_PER_SOL);
+
+await glamClient.vault.wrap(amount, txOptions);
+```
+
+This is useful when you need wSOL for trading on DEXs or other protocols.
+
+### Unwrap wSOL to SOL
+
+```typescript src/client/vault.ts
+await glamClient.vault.unwrap(txOptions);
+```
+
+Unwraps all wSOL in the vault back to native SOL by closing the wSOL token account.
+
+### Conditional wrapping
+
+The SDK can automatically wrap SOL only when needed:
+
+```typescript src/client/vault.ts
+const requiredWsol = new BN(2 * LAMPORTS_PER_SOL);
+const signer = glamClient.signer;
+
+// Returns instructions only if vault needs more wSOL
+const wrapInstructions = await glamClient.vault.maybeWrapSol(
+  requiredWsol,
+  signer,
+);
+
+if (wrapInstructions.length > 0) {
+  console.log("Wrapping SOL...");
+  // Instructions will be included in the transaction
+}
+```
+
+This is particularly useful in complex transactions where you want to ensure sufficient wSOL without manual checking.
+
+## Managing token accounts
+
+### Closing token accounts
+
+Reclaim rent by closing empty token accounts:
+
+```typescript src/client/vault.ts
+const tokenAccounts = [
+  new PublicKey("token_account_1"),
+  new PublicKey("token_account_2"),
+];
+
+await glamClient.vault.closeTokenAccounts(tokenAccounts, txOptions);
+```
+
+The SDK automatically:
+- Validates all accounts exist
+- Groups accounts by token program (Token vs Token-2022)
+- Closes all accounts in a single transaction
+
+## Complete example: Managing vault balances
+
+Here's a complete example showing deposits, transfers, and withdrawals:
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { GlamClient, fetchMintAndTokenProgram } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const txOptions = {
+  maxFeeLamports: 10_000,
+  useMaxFee: true,
+};
+
+// 1. Deposit SOL (wrapped)
+const depositAmount = new BN(2 * LAMPORTS_PER_SOL);
+await glamClient.vault.depositSol(depositAmount, true, txOptions);
+
+// 2. Deposit USDC
+const usdcMint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const { mint: usdcMintInfo } = await fetchMintAndTokenProgram(
+  glamClient.provider.connection,
+  usdcMint,
+);
+const usdcAmount = new BN(100 * 10 ** usdcMintInfo.decimals);
+await glamClient.vault.deposit(usdcMint, usdcAmount, txOptions);
+
+// 3. Transfer some USDC to a recipient
+const recipient = new PublicKey("recipient_wallet_address");
+const transferAmount = new BN(50 * 10 ** usdcMintInfo.decimals);
+await glamClient.vault.tokenTransfer(
+  usdcMint,
+  transferAmount,
+  recipient,
+  txOptions,
+);
+
+// 4. Check vault balances
+const balances = await glamClient.getSolAndTokenBalances(glamClient.vaultPda);
+console.log("Vault SOL balance:", balances.balanceLamports);
+console.log("Vault token accounts:", balances.tokenAccounts);
+```
+
+## Transaction options
+
+All asset operations accept optional transaction configuration:
+
+```typescript
+const txOptions = {
+  // Fee settings
+  maxFeeLamports: 10_000,
+  useMaxFee: true,
+
+  // Simulation (useful for testing)
+  simulate: true,
+
+  // Custom signer (for delegated operations)
+  signer: customSignerPublicKey,
+
+  // Address lookup tables
+  lookupTables: [lookupTablePublicKey],
+};
+```
+
+## Best practices
+
+- Always wrap SOL before trading on DEXs to avoid balance tracking issues
+- Use `fetchMintAndTokenProgram()` to get accurate decimals for token amounts
+- Close unused token accounts to reclaim rent
+- Validate recipient addresses before transfers
+- Use `maybeWrapSol()` in complex transactions to ensure sufficient wSOL
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Integrations" href="/guides/integrations" icon="plug">
+    Connect to DeFi protocols like Jupiter and Kamino
+  </Card>
+  <Card title="Access control" href="/guides/access-control" icon="shield">
+    Manage permissions for vault operations
+  </Card>
+</CardGroup>

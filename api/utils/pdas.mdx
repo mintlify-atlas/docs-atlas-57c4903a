@@ -1,0 +1,193 @@
+---
+title: PDA utilities
+description: Functions for deriving program-derived addresses
+---
+
+All PDA utilities use `PublicKey.findProgramAddressSync` to deterministically derive addresses.
+
+## State and vault PDAs
+
+### getStatePda
+
+Derives the state account PDA for a vault.
+
+```typescript
+function getStatePda(
+  initKey: Uint8Array | number[],
+  owner: PublicKey,
+  programId: PublicKey,
+): PublicKey
+```
+
+<ParamField path="initKey" type="Uint8Array | number[]" required>
+  Initialization key (unique identifier for the vault)
+</ParamField>
+
+<ParamField path="owner" type="PublicKey" required>
+  Vault owner public key
+</ParamField>
+
+<ParamField path="programId" type="PublicKey" required>
+  GLAM protocol program ID
+</ParamField>
+
+<ResponseField name="return" type="PublicKey">
+  State account PDA
+</ResponseField>
+
+### getVaultPda
+
+Derives the vault PDA for a state account.
+
+```typescript
+function getVaultPda(
+  statePda: PublicKey,
+  programId: PublicKey,
+): PublicKey
+```
+
+<ParamField path="statePda" type="PublicKey" required>
+  State account PDA
+</ParamField>
+
+<ParamField path="programId" type="PublicKey" required>
+  GLAM protocol program ID
+</ParamField>
+
+<ResponseField name="return" type="PublicKey">
+  Vault PDA
+</ResponseField>
+
+---
+
+## Mint PDAs
+
+### getMintPda
+
+Derives the share mint PDA for a tokenized vault.
+
+```typescript
+function getMintPda(
+  statePda: PublicKey,
+  mintIdx: number,
+  programId: PublicKey,
+): PublicKey
+```
+
+<ParamField path="statePda" type="PublicKey" required>
+  State account PDA
+</ParamField>
+
+<ParamField path="mintIdx" type="number" required>
+  Mint index (typically 0)
+</ParamField>
+
+<ParamField path="programId" type="PublicKey" required>
+  GLAM mint program ID
+</ParamField>
+
+<ResponseField name="return" type="PublicKey">
+  Share mint PDA
+</ResponseField>
+
+### getEscrowPda
+
+Derives the escrow account PDA for a mint.
+
+```typescript
+function getEscrowPda(
+  mintPda: PublicKey,
+  programId: PublicKey,
+): PublicKey
+```
+
+<ParamField path="mintPda" type="PublicKey" required>
+  Mint PDA
+</ParamField>
+
+<ParamField path="programId" type="PublicKey" required>
+  GLAM mint program ID
+</ParamField>
+
+<ResponseField name="return" type="PublicKey">
+  Escrow account PDA
+</ResponseField>
+
+### getRequestQueuePda
+
+Derives the request queue PDA for subscription/redemption requests.
+
+```typescript
+function getRequestQueuePda(
+  glamMint: PublicKey,
+  programId: PublicKey,
+): PublicKey
+```
+
+<ParamField path="glamMint" type="PublicKey" required>
+  Share mint public key
+</ParamField>
+
+<ParamField path="programId" type="PublicKey" required>
+  GLAM mint program ID
+</ParamField>
+
+<ResponseField name="return" type="PublicKey">
+  Request queue PDA
+</ResponseField>
+
+---
+
+## Transfer hook PDAs
+
+### getExtraMetasPda
+
+Derives the extra account metas PDA for transfer hooks.
+
+```typescript
+function getExtraMetasPda(
+  mint: PublicKey,
+): PublicKey
+```
+
+<ParamField path="mint" type="PublicKey" required>
+  Mint public key
+</ParamField>
+
+<ResponseField name="return" type="PublicKey">
+  Extra account metas PDA
+</ResponseField>
+
+### getAccountPolicyPda
+
+Derives the account policy PDA for a token account.
+
+```typescript
+function getAccountPolicyPda(
+  tokenAccount: PublicKey,
+): PublicKey
+```
+
+<ParamField path="tokenAccount" type="PublicKey" required>
+  Token account public key
+</ParamField>
+
+<ResponseField name="return" type="PublicKey">
+  Account policy PDA
+</ResponseField>
+
+---
+
+## Config PDAs
+
+### getGlobalConfigPda
+
+Derives the global config PDA.
+
+```typescript
+function getGlobalConfigPda(): PublicKey
+```
+
+<ResponseField name="return" type="PublicKey">
+  Global config PDA
+</ResponseField>

@@ -1,0 +1,222 @@
+---
+title: MarinadeClient
+---
+
+Client for liquid staking with Marinade Finance.
+
+## Constructor
+
+```typescript
+new MarinadeClient(
+  base: BaseClient,
+  stake: StakeClient
+)
+```
+
+<ParamField path="base" type="BaseClient" required>
+  Base client instance
+</ParamField>
+
+<ParamField path="stake" type="StakeClient" required>
+  Stake client instance for native stake operations
+</ParamField>
+
+## Methods
+
+### deposit
+
+Deposits SOL to Marinade and receives mSOL (liquid staking).
+
+```typescript
+await client.marinade.deposit(
+  amount: BN | number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="amount" type="BN | number" required>
+  Amount of SOL to deposit in lamports
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Returns:** Transaction signature
+
+### depositNative
+
+Deposits SOL by creating and delegating a native stake account to Marinade.
+
+```typescript
+await client.marinade.depositNative(
+  amount: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="amount" type="BN" required>
+  Amount of SOL in lamports to stake
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Returns:** Transaction signature
+
+### depositStakeAccount
+
+Deposits an existing stake account to Marinade in exchange for mSOL.
+
+```typescript
+await client.marinade.depositStakeAccount(
+  stakeAccount: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="stakeAccount" type="PublicKey" required>
+  Address of the stake account to deposit
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Returns:** Transaction signature
+
+### withdrawStakeAccount
+
+Withdraws mSOL from Marinade and receives a native stake account.
+
+```typescript
+await client.marinade.withdrawStakeAccount(
+  amount: BN,
+  deactivate?: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="amount" type="BN" required>
+  Amount of mSOL to withdraw in base units
+</ParamField>
+
+<ParamField path="deactivate" type="boolean" default="false">
+  Whether to immediately deactivate the received stake account
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Returns:** Transaction signature
+
+## Transaction Builder Methods
+
+### depositIxs
+
+Returns instructions for depositing SOL to Marinade.
+
+```typescript
+await client.marinade.txBuilder.depositIxs(
+  amount: BN,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+### depositNativeIxs
+
+Returns instructions for native stake deposit.
+
+```typescript
+await client.marinade.txBuilder.depositNativeIxs(
+  amount: BN,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+### depositStakeAccountIx
+
+Returns instruction for depositing a stake account.
+
+```typescript
+await client.marinade.txBuilder.depositStakeAccountIx(
+  stakeAccount: PublicKey,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction>
+```
+
+### withdrawStakeAccountIxs
+
+Returns instructions and keypair for withdrawing to a stake account.
+
+```typescript
+await client.marinade.txBuilder.withdrawStakeAccountIxs(
+  amount: BN,
+  deactivate: boolean,
+  glamSigner: PublicKey
+): Promise<[TransactionInstruction[], Keypair]>
+```
+
+**Returns:** Tuple of `[instructions, newStakeKeypair]`
+
+## Data Fetching
+
+### fetchMarinadeState
+
+Fetches the current Marinade state.
+
+```typescript
+await client.marinade.fetchMarinadeState(): Promise<MarinadeState>
+```
+
+**Returns:** Marinade state containing validator records and pool information
+
+### getParsedStakeAccountInfo
+
+Gets parsed information about a stake account.
+
+```typescript
+await client.marinade.getParsedStakeAccountInfo(
+  stakeAccount: PublicKey
+): Promise<{
+  voter: PublicKey;
+  balanceLamports: number;
+  stakedLamports: number;
+}>
+```
+
+<ParamField path="stakeAccount" type="PublicKey" required>
+  Stake account address
+</ParamField>
+
+**Returns:** Parsed stake account information
+
+## Example
+
+```typescript
+import { BN } from '@coral-xyz/anchor';
+import { PublicKey } from '@solana/web3.js';
+import { GlamClient } from '@glam/anchor';
+
+const client = new GlamClient();
+
+// Liquid stake 10 SOL with Marinade
+const depositSig = await client.marinade.deposit(
+  new BN(10_000_000_000) // 10 SOL
+);
+console.log('Deposited SOL, received mSOL:', depositSig);
+
+// Deposit an existing stake account
+const stakeAccount = new PublicKey('...');
+const stakeSig = await client.marinade.depositStakeAccount(stakeAccount);
+console.log('Deposited stake account:', stakeSig);
+
+// Withdraw mSOL as a deactivated stake account
+const withdrawSig = await client.marinade.withdrawStakeAccount(
+  new BN(5_000_000_000), // 5 mSOL
+  true // deactivate immediately
+);
+console.log('Withdrew to stake account:', withdrawSig);
+```

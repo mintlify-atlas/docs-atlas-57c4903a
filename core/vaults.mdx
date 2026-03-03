@@ -1,0 +1,316 @@
+---
+title: Vaults
+description: Understanding and working with GLAM vaults
+---
+
+## Overview
+
+Vaults are the core abstraction in GLAM for managing on-chain assets. Each vault is controlled by a state account and has an associated vault PDA that holds all assets.
+
+## Vault structure
+
+Every GLAM vault consists of several key components:
+
+```typescript
+// Derived PDAs for a vault
+const statePda = client.statePda;           // State account (vault metadata)
+const vaultPda = client.vaultPda;           // Holds all vault assets
+const mintPda = client.mintPda;             // Share token (if tokenized)
+const escrowPda = client.escrowPda;         // Escrow for subscriptions
+const requestQueuePda = client.requestQueuePda; // Pending requests
+```
+
+<Note>
+All PDAs are automatically derived from `statePda` when you connect a client to a vault.
+</Note>
+
+## State account
+
+The state account (`StateAccount`) stores all vault configuration and metadata:
+
+```typescript
+type StateAccount = {
+  accountType: StateAccountType;             // Vault type
+  name: number[];                            // Vault name (as bytes)
+  uri: string;                               // Metadata URI
+  enabled: boolean;                          // Vault enabled/disabled
+  
+  owner: PublicKey;                          // Vault owner
+  baseAssetMint: PublicKey;                  // Base denomination (e.g., USDC)
+  baseAssetTokenProgram: number;             // Token program (0=SPL, 1=Token2022)
+  
+  assets: PublicKey[];                       // Allowed assets
+  borrowable: PublicKey[];                   // Borrowable assets
+  reduceOnly: boolean;                       // Reduce-only mode
+  anyLst: boolean;                           // Allow any LST
+  
+  delegateAcls: DelegateAcl[];              // Delegate permissions
+  integrationAcls: IntegrationAcl[];        // Protocol permissions
+  
+  timelockDuration: number;                  // Timelock in seconds
+  params: StateParams[];                     // Serialized parameters
+};
+```
+
+## StateModel
+
+The SDK provides an enriched `StateModel` class that combines multiple on-chain accounts:
+
+```typescript
+const stateModel = await client.fetchStateModel();
+
+// Access vault properties
+console.log(stateModel.nameStr);           // Human-readable name
+console.log(stateModel.productType);       // "Tokenized_vault", etc.
+console.log(stateModel.launchDate);        // ISO date string
+console.log(stateModel.mintModel);         // Mint configuration (if tokenized)
+```
+
+### Key methods
+
+```typescript
+// Build StateModel from on-chain accounts
+static fromOnchainAccounts(
+  statePda: PublicKey,
+  stateAccount: StateAccount,
+  staging: boolean,
+  glamMint?: Mint,                           // Optional for tokenized vaults
+  requestQueue?: RequestQueue                // Optional for tokenized vaults
+): StateModel
+```
+
+## Vault operations
+
+The `VaultClient` provides methods for common vault operations:
+
+### Depositing assets
+
+```typescript
+// Deposit SOL (wrapped to wSOL by default)
+await client.vault.depositSol(
+  1_000_000_000,  // 1 SOL in lamports
+  true,           // Wrap to wSOL
+  { signer: walletPublicKey }
+);
+
+// Deposit tokens
+await client.vault.deposit(
+  usdcMint,
+  1_000_000,      // 1 USDC (6 decimals)
+  { signer: walletPublicKey }
+);
+```
+
+### Transferring assets
+
+```typescript
+// Transfer SOL from vault
+await client.vault.systemTransfer(
+  500_000_000,    // 0.5 SOL
+  recipientPubkey,
+  { signer: managerPublicKey }
+);
+
+// Transfer tokens from vault
+await client.vault.tokenTransfer(
+  usdcMint,
+  1_000_000,      // 1 USDC
+  recipientPubkey,
+  { signer: managerPublicKey }
+);
+```
+
+### Wrapping and unwrapping SOL
+
+```typescript
+// Wrap vault SOL to wSOL
+await client.vault.wrap(
+  1_000_000_000,  // 1 SOL
+  { signer: managerPublicKey }
+);
+
+// Unwrap wSOL back to SOL
+await client.vault.unwrap(
+  { signer: managerPublicKey }
+);
+
+// Conditionally wrap SOL if needed
+const wrapIxs = await client.vault.maybeWrapSol(
+  2_000_000_000,  // Need 2 SOL worth of wSOL
+  managerPublicKey
+);
+// Returns empty array if sufficient wSOL already exists
+```
+
+### Managing token accounts
+
+```typescript
+// Close multiple token accounts (reclaim rent)
+await client.vault.closeTokenAccounts(
+  [tokenAccount1, tokenAccount2],
+  { signer: managerPublicKey }
+);
+```
+
+## Querying vault balances
+
+The `BaseClient` provides methods to query vault holdings:
+
+```typescript
+// Get vault SOL balance
+const solBalance = await client.getVaultBalance();  // Returns SOL
+const lamports = await client.getVaultLamports();   // Returns lamports
+
+// Get vault token balance
+const { amount, uiAmount } = await client.getVaultTokenBalance(usdcMint);
+console.log(`Vault has ${uiAmount} USDC`);
+
+// Get all vault token accounts
+const { balanceLamports, uiAmount, tokenAccounts } = 
+  await client.getSolAndTokenBalances(client.vaultPda);
+```
+
+## State management
+
+The `StateClient` handles vault configuration:
+
+### Creating a vault
+
+```typescript
+import { stringToChars } from '@glam/sdk';
+
+const signature = await client.state.initialize({
+  accountType: StateAccountType.TOKENIZED_VAULT,
+  name: stringToChars("My Fund", 32),
+  baseAssetMint: USDC,
+  assets: [USDC, WSOL],
+  portfolioManagerName: stringToChars("ACME Capital", 64),
+}, { signer: ownerPublicKey });
+```
+
+### Updating vault configuration
+
+```typescript
+// Update allowed assets
+await client.state.update({
+  assets: [USDC, WSOL, JUP],
+}, { signer: ownerPublicKey });
+
+// Update owner
+await client.state.update({
+  owner: newOwnerPublicKey,
+}, { signer: currentOwnerPublicKey });
+```
+
+<Warning>
+If timelock is enabled, updates are staged and require a second transaction after the timelock period expires.
+</Warning>
+
+### Extending state account size
+
+```typescript
+// Add 1000 bytes to state account
+await client.state.extend(
+  1000,
+  { signer: ownerPublicKey }
+);
+```
+
+### Closing a vault
+
+```typescript
+// Close the state account (vault must be empty)
+await client.state.close(
+  { signer: ownerPublicKey }
+);
+```
+
+## Getting vault addresses
+
+The client provides convenient getters for associated token accounts:
+
+```typescript
+// Get vault's token account for any mint
+const vaultUsdc = client.getVaultAta(USDC);
+const vaultWsol = client.getVaultAta(WSOL);
+
+// Get user's vault share token account
+const userSharesAta = client.getMintAta(userPublicKey);
+
+// Get any ATA
+const ata = client.getAta(
+  mintPublicKey,
+  ownerPublicKey,
+  TOKEN_PROGRAM_ID
+);
+```
+
+## Transaction options
+
+All vault operations accept `TxOptions` for advanced configuration:
+
+```typescript
+type TxOptions = {
+  signer?: PublicKey;                        // Transaction signer
+  computeUnitLimit?: number;                 // CU limit (auto-calculated)
+  getPriorityFeeMicroLamports?: (tx: VersionedTransaction) => Promise<number>;
+  maxFeeLamports?: number;                   // Max priority fee
+  useMaxFee?: boolean;                       // Use max fee instead of calculating
+  preInstructions?: TransactionInstruction[];  // Added before main instructions
+  postInstructions?: TransactionInstruction[]; // Added after main instructions
+  lookupTables?: PublicKey[] | AddressLookupTableAccount[];
+  simulate?: boolean;                        // Throw on simulation error
+};
+```
+
+### Using transaction options
+
+```typescript
+// Add memo and set priority fee
+await client.vault.deposit(usdcMint, 1_000_000, {
+  signer: walletPublicKey,
+  postInstructions: [memoInstruction],
+  getPriorityFeeMicroLamports: async (tx) => {
+    // Calculate priority fee based on network conditions
+    return 10_000; // 0.00001 SOL
+  },
+  simulate: true  // Throw error if simulation fails
+});
+```
+
+## Working with transaction builders
+
+For advanced use cases, you can access the underlying transaction builders:
+
+```typescript
+// Build instructions without sending
+const depositIxs = await client.vault.txBuilder.depositIxs(
+  usdcMint,
+  1_000_000,
+  walletPublicKey
+);
+
+// Build a versioned transaction
+const vTx = await client.vault.txBuilder.depositTx(
+  usdcMint,
+  1_000_000,
+  { signer: walletPublicKey }
+);
+
+// Sign and send manually
+const signature = await client.sendAndConfirm(vTx);
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Clients" icon="code" href="/core/clients">
+    Learn about the client architecture
+  </Card>
+  <Card title="Access control" icon="shield" href="/guides/access-control">
+    Configure permissions and delegates
+  </Card>
+  <Card title="Integrations" icon="plug" href="/integrations/overview">
+    Explore DeFi protocol integrations
+  </Card>
+</CardGroup>

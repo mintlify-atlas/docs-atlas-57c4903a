@@ -1,0 +1,468 @@
+---
+title: DeFi integrations
+description: Complete examples for integrating with Jupiter, Marinade, staking, and other DeFi protocols
+---
+
+This guide demonstrates how to use GLAM vaults with popular DeFi protocols on Solana, including Jupiter for swaps, Marinade for liquid staking, and native staking operations.
+
+## Jupiter swap integration
+
+Jupiter is the leading swap aggregator on Solana. The GLAM SDK provides seamless integration for token swaps.
+
+### Basic swap using quote params
+
+```typescript
+import { GlamClient, WSOL, MSOL } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient({ jupiterApiKey: "your-api-key" });
+
+const txSig = await glamClient.jupiterSwap.swap({
+  quoteParams: {
+    inputMint: WSOL.toBase58(),
+    outputMint: MSOL.toBase58(),
+    amount: 50_000_000, // 0.05 SOL in lamports
+    swapMode: "ExactIn",
+    onlyDirectRoutes: true,
+    maxAccounts: 8,
+  },
+});
+
+console.log("✅ Swap successful:", txSig);
+```
+
+### Swap with pre-fetched quote
+
+```typescript
+import { GlamClient, WSOL, USDC } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient({ jupiterApiKey: "your-api-key" });
+
+// Get quote from Jupiter API
+const quoteResponse = await glamClient.jupiterSwap.jupApi.getQuoteResponse({
+  inputMint: WSOL.toBase58(),
+  outputMint: USDC.toBase58(),
+  amount: 100_000_000, // 0.1 SOL
+  swapMode: "ExactIn",
+});
+
+console.log("Quote:", {
+  inputAmount: quoteResponse.inAmount,
+  outputAmount: quoteResponse.outAmount,
+  priceImpact: quoteResponse.priceImpactPct,
+});
+
+// Execute swap with quote
+const txSig = await glamClient.jupiterSwap.swap({
+  quoteResponse,
+});
+
+console.log("✅ Swap successful:", txSig);
+```
+
+### Swap with custom instructions
+
+For advanced use cases, you can provide pre-built swap instructions.
+
+```typescript
+import { GlamClient, WSOL, MSOL } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient({ jupiterApiKey: "your-api-key" });
+
+const quoteParams = {
+  inputMint: WSOL.toBase58(),
+  outputMint: MSOL.toBase58(),
+  amount: 50_000_000,
+  swapMode: "ExactIn" as const,
+};
+
+// Get quote and swap instructions
+const quoteResponse = await glamClient.jupiterSwap.jupApi.getQuoteResponse(quoteParams);
+const swapInstructions = await glamClient.jupiterSwap.jupApi.getSwapInstructions(
+  quoteResponse,
+  glamClient.vaultPda,
+);
+
+// Execute with custom instructions
+const txSig = await glamClient.jupiterSwap.swap({
+  quoteParams,
+  quoteResponse,
+  swapInstructions,
+});
+
+console.log("✅ Swap successful:", txSig);
+```
+
+<Note>
+The Jupiter API key is optional for basic usage but recommended for production to avoid rate limits.
+</Note>
+
+## Marinade liquid staking
+
+Marinade Finance offers liquid staking for SOL. Deposit SOL and receive mSOL (Marinade Staked SOL) tokens.
+
+### Deposit SOL to Marinade
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+// Deposit 20 SOL to Marinade
+const amount = new BN(20_000_000_000); // 20 SOL in lamports
+
+const txSig = await glamClient.marinade.deposit(amount);
+console.log("✅ Deposited 20 SOL to Marinade:", txSig);
+```
+
+<Info>
+The vault will receive mSOL tokens in return, which represent your staked SOL plus accrued rewards.
+</Info>
+
+### Native stake deposit to Marinade
+
+You can create a native stake account and authorize Marinade to manage it.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+// Create and authorize a stake account for Marinade
+const amount = new BN(1_000_000_000); // 1 SOL
+
+const txSig = await glamClient.marinade.depositNative(amount);
+console.log("✅ Created native stake account:", txSig);
+```
+
+### Deposit existing stake account
+
+```typescript
+import { GlamClient, getStakeAccountsWithStates } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+// Get vault's stake accounts
+const stakeAccounts = await getStakeAccountsWithStates(
+  glamClient.connection,
+  glamClient.vaultPda,
+);
+
+if (stakeAccounts.length > 0) {
+  const txSig = await glamClient.marinade.depositStakeAccount(
+    stakeAccounts[0].address
+  );
+  console.log("✅ Deposited stake account:", txSig);
+}
+```
+
+### Withdraw from Marinade
+
+Withdraw your stake from Marinade by burning mSOL tokens and receiving a stake account.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+// Withdraw 1 mSOL (approximately 1 SOL worth of stake)
+const amount = new BN(1e9); // 1 mSOL in lamports
+
+const txSig = await glamClient.marinade.withdrawStakeAccount(
+  amount,
+  true, // deactivate the stake account immediately
+);
+
+console.log("✅ Withdrew stake account:", txSig);
+```
+
+## Native staking operations
+
+GLAM vaults support native Solana staking operations for maximum control over your stake.
+
+### Delegate stake to a validator
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const validatorVote = new PublicKey("GJQjnyhSG9jN1AdMHTSyTxUR44hJHEGCmNzkidw9z3y8");
+const amount = new BN(10_000_000_000); // 10 SOL
+
+const txSig = await glamClient.stake.initializeAndDelegateStake(
+  validatorVote,
+  amount,
+);
+
+console.log("✅ Stake delegated to validator:", txSig);
+```
+
+### Deactivate stake accounts
+
+```typescript
+import { GlamClient, getStakeAccountsWithStates } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+// Get active stake accounts
+const stakeAccounts = await getStakeAccountsWithStates(
+  glamClient.connection,
+  glamClient.vaultPda,
+);
+
+const activeStakes = stakeAccounts
+  .filter(s => s.state === "active")
+  .map(s => s.address);
+
+if (activeStakes.length > 0) {
+  const txSig = await glamClient.stake.deactivate(activeStakes);
+  console.log("✅ Deactivated stake accounts:", txSig);
+}
+```
+
+### Withdraw from stake accounts
+
+After deactivation, you can withdraw SOL back to the vault.
+
+```typescript
+import { GlamClient, getStakeAccountsWithStates } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const stakeAccounts = await getStakeAccountsWithStates(
+  glamClient.connection,
+  glamClient.vaultPda,
+);
+
+const inactiveStakes = stakeAccounts
+  .filter(s => s.state === "inactive")
+  .map(s => s.address);
+
+if (inactiveStakes.length > 0) {
+  const txSig = await glamClient.stake.withdraw(inactiveStakes);
+  console.log("✅ Withdrew from stake accounts:", txSig);
+}
+```
+
+### Split stake account
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const existingStake = new PublicKey("existing-stake-account");
+const splitAmount = new BN(5_000_000_000); // Split 5 SOL
+
+const { newStake, txSig } = await glamClient.stake.split(
+  existingStake,
+  splitAmount,
+);
+
+console.log("✅ Stake split:", txSig);
+console.log("New stake account:", newStake.toBase58());
+```
+
+### Merge stake accounts
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const destinationStake = new PublicKey("destination-stake");
+const sourceStake = new PublicKey("source-stake");
+
+const txSig = await glamClient.stake.merge(
+  destinationStake,
+  sourceStake,
+);
+
+console.log("✅ Stakes merged:", txSig);
+```
+
+## Stake pool operations
+
+GLAM supports deposits and withdrawals from Solana stake pools.
+
+### Deposit SOL to stake pool
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const stakePool = new PublicKey("stake-pool-address");
+const amount = new BN(10_000_000_000); // 10 SOL
+
+const txSig = await glamClient.stakePool.depositSol(
+  stakePool,
+  amount,
+);
+
+console.log("✅ Deposited SOL to stake pool:", txSig);
+```
+
+### Deposit stake account to pool
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const stakePool = new PublicKey("stake-pool-address");
+const stakeAccount = new PublicKey("stake-account");
+
+const txSig = await glamClient.stakePool.depositStake(
+  stakePool,
+  stakeAccount,
+);
+
+console.log("✅ Deposited stake to pool:", txSig);
+```
+
+### Withdraw stake from pool
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const stakePool = new PublicKey("stake-pool-address");
+const amount = new BN(5_000_000_000); // 5 pool tokens
+
+const txSig = await glamClient.stakePool.withdrawStake(
+  stakePool,
+  amount,
+  true, // deactivate immediately
+);
+
+console.log("✅ Withdrew stake from pool:", txSig);
+```
+
+### Unstake LST tokens
+
+The SDK provides a convenience method to unstake liquid staking tokens.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { MSOL, GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+// Unstake mSOL (Marinade)
+const amount = new BN(1_000_000_000); // 1 mSOL
+
+const txSig = await glamClient.stakePool.unstake(
+  MSOL,
+  amount,
+  true, // deactivate the resulting stake account
+);
+
+console.log("✅ Unstaked mSOL:", txSig);
+```
+
+## Creating Squads multisig proposals
+
+For vaults controlled by Squads multisig, you can create proposals for GLAM operations.
+
+```typescript
+import {
+  PublicKey,
+  Transaction,
+  TransactionMessage,
+} from "@solana/web3.js";
+import {
+  GlamClient,
+  getProgramAndBitflagByProtocolName,
+} from "@glamsystems/glam-sdk";
+import * as multisig from "@sqds/multisig";
+
+const glamClient = new GlamClient({
+  statePda: new PublicKey(process.env.GLAM_STATE!),
+});
+const multisigPda = new PublicKey(process.env.SQUADS_MULTISIG!);
+
+// Get Squads vault PDA
+const [squadsVaultPda] = multisig.getVaultPda({
+  multisigPda,
+  index: 0,
+});
+
+// Prepare GLAM instruction (enable Jupiter Swap)
+const permissionsMap = getProgramAndBitflagByProtocolName();
+const [integrationProgram, protocolBitflag] = permissionsMap["JupiterSwap"];
+
+const ix = await glamClient.access.txBuilder.enableDisableProtocolsIx(
+  new PublicKey(integrationProgram),
+  parseInt(protocolBitflag, 2),
+  true,
+  squadsVaultPda, // Squads vault is the signer
+);
+
+// Wrap in transaction message
+const blockhash = (await glamClient.blockhashWithCache.get()).blockhash;
+const txMessage = new TransactionMessage({
+  payerKey: squadsVaultPda,
+  recentBlockhash: blockhash,
+  instructions: [ix],
+});
+
+// Get current transaction index
+const multisigInfo = await multisig.accounts.Multisig.fromAccountAddress(
+  glamClient.connection,
+  multisigPda,
+);
+const currentTransactionIndex = Number(multisigInfo.transactionIndex);
+const newTransactionIndex = BigInt(currentTransactionIndex + 1);
+
+// Create Squads transaction and proposal
+const ixCreateSquadsTx = multisig.instructions.vaultTransactionCreate({
+  multisigPda,
+  transactionIndex: newTransactionIndex,
+  creator: glamClient.signer,
+  vaultIndex: 0,
+  ephemeralSigners: 0,
+  transactionMessage: txMessage,
+});
+
+const ixCreateSquadsProposal = multisig.instructions.proposalCreate({
+  multisigPda,
+  creator: glamClient.signer,
+  transactionIndex: newTransactionIndex,
+});
+
+// Submit transaction
+const tx = new Transaction().add(ixCreateSquadsTx, ixCreateSquadsProposal);
+const vTx = await glamClient.intoVersionedTransaction(tx);
+const txSig = await glamClient.sendAndConfirm(vTx);
+
+console.log("✅ Squads proposal created:", txSig);
+
+// Get proposal URL
+const [transactionPda] = multisig.getTransactionPda({
+  multisigPda,
+  index: newTransactionIndex,
+});
+console.log(
+  "View proposal:",
+  `https://app.squads.so/squads/${squadsVaultPda}/transactions/${transactionPda}`
+);
+```
+
+<Note>
+Squads integration allows multiple signers to approve GLAM vault operations, adding an extra layer of security for high-value vaults.
+</Note>

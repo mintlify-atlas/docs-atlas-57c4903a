@@ -1,0 +1,248 @@
+---
+title: AccessClient
+description: Manage protocol access controls, delegate permissions, and emergency access for GLAM vaults
+---
+
+## Overview
+
+The `AccessClient` provides methods to configure access controls, enable/disable protocols, manage delegate permissions, and handle emergency access updates.
+
+## Methods
+
+### emergencyAccessUpdate
+
+Performs emergency access control changes that bypass the timelock mechanism for critical security updates.
+
+```typescript
+emergencyAccessUpdate(
+  args: Partial<EmergencyAccessUpdateArgs>,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="args" type="Partial<EmergencyAccessUpdateArgs>" required>
+  Emergency access update parameters
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options including signer and compute budget
+</ParamField>
+
+**Example**
+
+```typescript
+const signature = await glamClient.access.emergencyAccessUpdate({
+  // emergency access parameters
+});
+```
+
+### enableProtocols
+
+Enables specific protocols for an integration program using a bitmask.
+
+```typescript
+enableProtocols(
+  integrationProgram: PublicKey,
+  protocolBitmask: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="integrationProgram" type="PublicKey" required>
+  The integration program to configure
+</ParamField>
+
+<ParamField path="protocolBitmask" type="number" required>
+  Bitmask representing which protocols to enable
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+const signature = await glamClient.access.enableProtocols(
+  integrationProgramId,
+  0b01 // Enable first protocol
+);
+```
+
+### disableProtocols
+
+Disables specific protocols for an integration program.
+
+```typescript
+disableProtocols(
+  integrationProgram: PublicKey,
+  protocolBitmask: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="integrationProgram" type="PublicKey" required>
+  The integration program to configure
+</ParamField>
+
+<ParamField path="protocolBitmask" type="number" required>
+  Bitmask representing which protocols to disable
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+const signature = await glamClient.access.disableProtocols(
+  integrationProgramId,
+  0b10 // Disable second protocol
+);
+```
+
+### grantDelegatePermissions
+
+Grants specific permissions to a delegate for a protocol.
+
+```typescript
+grantDelegatePermissions(
+  delegate: PublicKey,
+  integrationProgram: PublicKey,
+  protocolBitflag: number,
+  permissionsBitmask: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="delegate" type="PublicKey" required>
+  The delegate address to grant permissions to
+</ParamField>
+
+<ParamField path="integrationProgram" type="PublicKey" required>
+  The integration program
+</ParamField>
+
+<ParamField path="protocolBitflag" type="number" required>
+  Protocol identifier
+</ParamField>
+
+<ParamField path="permissionsBitmask" type="BN" required>
+  Bitmask of permissions to grant
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+const signature = await glamClient.access.grantDelegatePermissions(
+  delegateAddress,
+  integrationProgramId,
+  1,
+  new BN(0b111) // Grant multiple permissions
+);
+```
+
+### revokeDelegatePermissions
+
+Revokes specific permissions from a delegate for a protocol.
+
+```typescript
+revokeDelegatePermissions(
+  delegate: PublicKey,
+  integrationProgram: PublicKey,
+  protocolBitflag: number,
+  permissionsBitmask: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="delegate" type="PublicKey" required>
+  The delegate address to revoke permissions from
+</ParamField>
+
+<ParamField path="integrationProgram" type="PublicKey" required>
+  The integration program
+</ParamField>
+
+<ParamField path="protocolBitflag" type="number" required>
+  Protocol identifier
+</ParamField>
+
+<ParamField path="permissionsBitmask" type="BN" required>
+  Bitmask of permissions to revoke
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+const signature = await glamClient.access.revokeDelegatePermissions(
+  delegateAddress,
+  integrationProgramId,
+  1,
+  new BN(0b100)
+);
+```
+
+### setProtocolPolicy
+
+Sets protocol-specific policy data for an integration.
+
+```typescript
+setProtocolPolicy(
+  integrationProgram: PublicKey,
+  protocolBitflag: number,
+  data: Buffer,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="integrationProgram" type="PublicKey" required>
+  The integration program
+</ParamField>
+
+<ParamField path="protocolBitflag" type="number" required>
+  Protocol identifier
+</ParamField>
+
+<ParamField path="data" type="Buffer" required>
+  Serialized policy data
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+const policyData = Buffer.from([/* policy bytes */]);
+
+const signature = await glamClient.access.setProtocolPolicy(
+  integrationProgramId,
+  1,
+  policyData
+);
+```
+
+## Types
+
+### TxOptions
+
+```typescript
+interface TxOptions {
+  signer?: PublicKey;
+  computeUnitLimit?: number;
+  computeUnitPrice?: number;
+}
+```

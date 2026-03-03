@@ -1,0 +1,322 @@
+---
+title: Kamino clients
+---
+
+Clients for interacting with Kamino Lending, Kamino Farms, and Kamino Vaults.
+
+## KaminoLendingClient
+
+Client for Kamino lending and borrowing operations.
+
+### Constructor
+
+```typescript
+new KaminoLendingClient(
+  base: BaseClient,
+  vault: VaultClient
+)
+```
+
+<ParamField path="base" type="BaseClient" required>
+  Base client instance
+</ParamField>
+
+<ParamField path="vault" type="VaultClient" required>
+  Vault client instance
+</ParamField>
+
+### Methods
+
+#### initUserMetadata
+
+Initializes Kamino user metadata (required before first interaction).
+
+```typescript
+await client.kaminoLending.initUserMetadata(
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### deposit
+
+Deposits assets to a Kamino lending market.
+
+```typescript
+await client.kaminoLending.deposit(
+  market: PublicKey | string,
+  asset: PublicKey | string,
+  amount: BN | number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="market" type="PublicKey | string" required>
+  Lending market address
+</ParamField>
+
+<ParamField path="asset" type="PublicKey | string" required>
+  Asset mint address to deposit
+</ParamField>
+
+<ParamField path="amount" type="BN | number" required>
+  Amount to deposit in base units
+</ParamField>
+
+#### withdraw
+
+Withdraws assets from a Kamino lending market.
+
+```typescript
+await client.kaminoLending.withdraw(
+  market: PublicKey | string,
+  asset: PublicKey | string,
+  amount: BN | number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### borrow
+
+Borrows assets from a Kamino lending market.
+
+```typescript
+await client.kaminoLending.borrow(
+  market: PublicKey | string,
+  asset: PublicKey | string,
+  amount: BN | number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### repay
+
+Repays borrowed assets to a Kamino lending market.
+
+```typescript
+await client.kaminoLending.repay(
+  market: PublicKey | string,
+  asset: PublicKey | string,
+  amount: BN | number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### requestElevationGroup
+
+Requests an elevation group for an obligation (staging only).
+
+```typescript
+await client.kaminoLending.requestElevationGroup(
+  market: PublicKey | string,
+  elevationGroup: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+### Data fetching
+
+#### findAndParseObligations
+
+Finds all obligations for the vault.
+
+```typescript
+await client.kaminoLending.findAndParseObligations(
+  owner: PublicKey,
+  market?: PublicKey
+): Promise<Obligation[]>
+```
+
+<ParamField path="owner" type="PublicKey" required>
+  Obligation owner (vault address)
+</ParamField>
+
+<ParamField path="market" type="PublicKey">
+  Optional market filter
+</ParamField>
+
+## KaminoFarmClient
+
+Client for Kamino Farms staking and rewards.
+
+### Constructor
+
+```typescript
+new KaminoFarmClient(
+  base: BaseClient,
+  kaminoLending: KaminoLendingClient
+)
+```
+
+### Methods
+
+#### stake
+
+Stakes tokens to a Kamino farm.
+
+```typescript
+await client.kaminoFarm.stake(
+  amount: BN,
+  farmState: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="amount" type="BN" required>
+  Amount to stake in base units
+</ParamField>
+
+<ParamField path="farmState" type="PublicKey" required>
+  Farm state address
+</ParamField>
+
+#### unstake
+
+Unstakes tokens from a Kamino farm.
+
+```typescript
+await client.kaminoFarm.unstake(
+  amount: BN,
+  farmState: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### harvest
+
+Harvests rewards from Kamino farms.
+
+```typescript
+await client.kaminoFarm.harvest(
+  vaultFarmStates: PublicKey[],
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="vaultFarmStates" type="PublicKey[]" required>
+  Array of farm user state addresses to harvest from
+</ParamField>
+
+### Data fetching
+
+#### findAndParseFarmUserStates
+
+Finds all farm user states for an owner.
+
+```typescript
+await client.kaminoFarm.findAndParseFarmUserStates(
+  owner: PublicKey
+): Promise<ParsedFarmUser[]>
+```
+
+## KaminoVaultsClient
+
+Client for Kamino Vaults (multiply/auto-compounding strategies).
+
+### Constructor
+
+```typescript
+new KaminoVaultsClient(
+  base: BaseClient,
+  kaminoLending: KaminoLendingClient
+)
+```
+
+### Methods
+
+#### deposit
+
+Deposits to a Kamino vault.
+
+```typescript
+await client.kaminoVaults.deposit(
+  vault: PublicKey,
+  amount: BN | number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="vault" type="PublicKey" required>
+  Kamino vault address
+</ParamField>
+
+<ParamField path="amount" type="BN | number" required>
+  Amount to deposit in base units
+</ParamField>
+
+#### withdraw
+
+Withdraws from a Kamino vault.
+
+```typescript
+await client.kaminoVaults.withdraw(
+  vault: PublicKey,
+  amount: BN | number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+### Data fetching
+
+#### findAndParseKaminoVaults
+
+Finds all Kamino vaults.
+
+```typescript
+await client.kaminoVaults.findAndParseKaminoVaults(
+  commitment?: Commitment
+): Promise<KVaultState[]>
+```
+
+#### getVaultPdasByShareMints
+
+Gets vault addresses from share mint addresses.
+
+```typescript
+await client.kaminoVaults.getVaultPdasByShareMints(
+  mints: PublicKey[]
+): Promise<PublicKey[]>
+```
+
+## Example
+
+```typescript
+import { BN } from '@coral-xyz/anchor';
+import { PublicKey } from '@solana/web3.js';
+import { GlamClient } from '@glam/anchor';
+
+const client = new GlamClient();
+const MAIN_MARKET = new PublicKey('7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF');
+const USDC = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+
+// Initialize user metadata (first time only)
+await client.kaminoLending.initUserMetadata();
+
+// Deposit USDC to Kamino lending
+await client.kaminoLending.deposit(
+  MAIN_MARKET,
+  USDC,
+  new BN(100_000_000) // 100 USDC
+);
+
+// Borrow SOL
+const SOL = new PublicKey('So11111111111111111111111111111111111111112');
+await client.kaminoLending.borrow(
+  MAIN_MARKET,
+  SOL,
+  new BN(50_000_000) // 0.05 SOL
+);
+
+// Stake to a Kamino farm
+const farmState = new PublicKey('...');
+await client.kaminoFarm.stake(
+  new BN(10_000_000),
+  farmState
+);
+
+// Deposit to a Kamino vault
+const vault = new PublicKey('...');
+await client.kaminoVaults.deposit(
+  vault,
+  new BN(100_000_000)
+);
+```

@@ -1,0 +1,99 @@
+---
+title: Transaction utilities
+description: Functions for transaction simulation and error handling
+---
+
+## Simulation
+
+### getSimulationResult
+
+Simulates a transaction and returns compute units consumed and any errors.
+
+```typescript
+async function getSimulationResult(
+  connection: Connection,
+  instructions: Array<TransactionInstruction>,
+  payer: PublicKey,
+  lookupTables?: Array<AddressLookupTableAccount>,
+  staging?: boolean,
+): Promise<{
+  unitsConsumed?: number;
+  error?: Error;
+  serializedTx?: String;
+}>
+```
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ParamField path="instructions" type="TransactionInstruction[]" required>
+  Array of transaction instructions to simulate
+</ParamField>
+
+<ParamField path="payer" type="PublicKey" required>
+  Transaction fee payer
+</ParamField>
+
+<ParamField path="lookupTables" type="AddressLookupTableAccount[]">
+  Optional address lookup tables
+</ParamField>
+
+<ParamField path="staging" type="boolean" default="false">
+  Whether to use staging environment for error resolution
+</ParamField>
+
+<ResponseField name="unitsConsumed" type="number | undefined">
+  Compute units consumed (if successful)
+</ResponseField>
+
+<ResponseField name="error" type="Error | undefined">
+  Error object (if simulation failed)
+</ResponseField>
+
+<ResponseField name="serializedTx" type="String | undefined">
+  Base64 encoded serialized transaction
+</ResponseField>
+
+---
+
+## Error parsing
+
+### parseProgramLogs
+
+Parses program logs to extract a human-readable error message.
+
+```typescript
+function parseProgramLogs(
+  logs: string[],
+  staging: boolean,
+): string
+```
+
+<ParamField path="logs" type="string[]" required>
+  Array of program log strings from transaction simulation or execution
+</ParamField>
+
+<ParamField path="staging" type="boolean" required>
+  Whether to use staging environment for error code resolution
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Human-readable error message. Checks in order:
+  - Anchor "Error Message:" from program logs
+  - Insufficient funds/lamports errors
+  - Custom program error codes (resolved via IDL)
+  - Returns "Unknown error" if no pattern matches
+</ResponseField>
+
+**Example usage:**
+
+```typescript
+const logs = [
+  "Program log: Instruction: Transfer",
+  "Program log: Error Message: Insufficient balance",
+];
+
+const errorMsg = parseProgramLogs(logs, false);
+// Returns: "Insufficient balance"
+```

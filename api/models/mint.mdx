@@ -1,0 +1,164 @@
+---
+title: Mint models
+description: Share token mint models for tokenized vaults
+---
+
+## MintModel
+
+Represents the share token configuration for tokenized vaults.
+
+<ResponseField name="statePda" type="PublicKey | null">
+  Associated state account PDA
+</ResponseField>
+
+<ResponseField name="baseAssetMint" type="PublicKey | null">
+  Base asset mint (e.g., USDC or SOL)
+</ResponseField>
+
+<ResponseField name="symbol" type="string | null">
+  Share token symbol
+</ResponseField>
+
+<ResponseField name="name" type="number[] | null">
+  Share token name as character codes
+</ResponseField>
+
+<ResponseField name="nameStr" type="string">
+  Share token name as string (getter)
+</ResponseField>
+
+<ResponseField name="uri" type="string | null">
+  Token metadata URI
+</ResponseField>
+
+<ResponseField name="yearInSeconds" type="number | null">
+  Year duration in seconds (for fee calculations)
+</ResponseField>
+
+<ResponseField name="permanentDelegate" type="PublicKey | null">
+  Permanent delegate authority (Token-2022 extension)
+</ResponseField>
+
+<ResponseField name="defaultAccountStateFrozen" type="boolean | null">
+  Whether new token accounts are frozen by default (Token-2022 extension)
+</ResponseField>
+
+<ResponseField name="transferHookProgram" type="PublicKey | null">
+  Transfer hook program ID (Token-2022 extension)
+</ResponseField>
+
+<ResponseField name="feeStructure" type="FeeStructure | null">
+  Fee configuration for the share token
+</ResponseField>
+
+<ResponseField name="notifyAndSettle" type="NotifyAndSettle | null">
+  Notification and settlement configuration
+</ResponseField>
+
+<ResponseField name="lockupPeriod" type="number | null">
+  Lockup period in seconds after subscription
+</ResponseField>
+
+<ResponseField name="maxCap" type="BN | null">
+  Maximum total supply cap
+</ResponseField>
+
+<ResponseField name="minSubscription" type="BN | null">
+  Minimum subscription amount
+</ResponseField>
+
+<ResponseField name="minRedemption" type="BN | null">
+  Minimum redemption amount
+</ResponseField>
+
+<ResponseField name="allowlist" type="PublicKey[] | null">
+  Allowlisted investor public keys
+</ResponseField>
+
+<ResponseField name="blocklist" type="PublicKey[] | null">
+  Blocklisted public keys
+</ResponseField>
+
+<ResponseField name="claimableFees" type="AccruedFees | null">
+  Fees that can be claimed
+</ResponseField>
+
+<ResponseField name="claimedFees" type="AccruedFees | null">
+  Fees that have been claimed
+</ResponseField>
+
+<ResponseField name="feeParams" type="FeeParams | null">
+  Fee calculation parameters
+</ResponseField>
+
+<ResponseField name="subscriptionPaused" type="boolean | null">
+  Whether subscriptions are paused
+</ResponseField>
+
+<ResponseField name="redemptionPaused" type="boolean | null">
+  Whether redemptions are paused
+</ResponseField>
+
+<ResponseField name="pendingRequests" type="any[] | null">
+  Pending subscription/redemption requests
+</ResponseField>
+
+---
+
+## RequestType
+
+Enum for subscription and redemption request types.
+
+<ResponseField name="SUBSCRIPTION" type="{ subscription: {} }">
+  Subscription request
+</ResponseField>
+
+<ResponseField name="REDEMPTION" type="{ redemption: {} }">
+  Redemption request
+</ResponseField>
+
+### Static methods
+
+<ResponseField name="equals" type="function">
+  ```typescript
+  static equals(a: RequestType, b: RequestType): boolean
+  ```
+  
+  Compares two RequestType instances.
+</ResponseField>
+
+<ResponseField name="fromInt" type="function">
+  ```typescript
+  static fromInt(int: number): RequestType
+  ```
+  
+  Creates RequestType from integer (0 = subscription, 1 = redemption).
+</ResponseField>
+
+---
+
+## OracleConfigs
+
+Oracle configuration for asset pricing.
+
+<ResponseField name="maxAgesSeconds" type="number[][]" required>
+  Maximum age in seconds for each oracle feed
+</ResponseField>
+
+<ResponseField name="padding" type="number[]" required>
+  12 bytes of padding
+</ResponseField>
+
+---
+
+## EmergencyUpdateMintArgs
+
+Arguments for emergency mint updates.
+
+<ResponseField name="requestType" type="RequestType" required>
+  Type of request to update (subscription or redemption)
+</ResponseField>
+
+<ResponseField name="setPaused" type="boolean" required>
+  Whether to pause or unpause the request type
+</ResponseField>

@@ -1,0 +1,202 @@
+---
+title: Creating vaults
+description: Learn how to create and initialize GLAM vaults using the SDK
+---
+
+This guide walks you through creating and initializing a new GLAM vault.
+
+## Overview
+
+GLAM vaults are on-chain accounts that hold assets and manage permissions. You can create different types of vaults:
+
+- **Vault**: Non-tokenized vault for direct asset management
+- **TokenizedVault**: Vault with share tokens for investors
+- **SingleAssetVault**: Specialized vault for single asset strategies
+
+## Prerequisites
+
+Before creating a vault, ensure you have:
+
+- A funded Solana wallet
+- The GLAM SDK installed
+- RPC endpoint configured
+
+## Creating a vault
+
+<Steps>
+  <Step title="Initialize the GlamClient">
+    First, create a new instance of `GlamClient`. The client automatically uses environment variables for wallet and RPC configuration:
+
+    ```typescript
+    import { GlamClient } from "@glamsystems/glam-sdk";
+
+    const glamClient = new GlamClient();
+    ```
+
+    You can also pass custom configuration:
+
+    ```typescript
+    import { AnchorProvider } from "@coral-xyz/anchor";
+    import { Connection, Keypair } from "@solana/web3.js";
+
+    const connection = new Connection("https://api.mainnet-beta.solana.com");
+    const wallet = Keypair.fromSecretKey(/* your secret key */);
+    const provider = new AnchorProvider(connection, wallet, {});
+
+    const glamClient = new GlamClient({ provider });
+    ```
+  </Step>
+
+  <Step title="Prepare vault parameters">
+    Define your vault configuration including name, account type, and base asset:
+
+    ```typescript
+    import { stringToChars, StateAccountType, WSOL } from "@glamsystems/glam-sdk";
+    import { PublicKey } from "@solana/web3.js";
+
+    const vaultParams = {
+      name: stringToChars("My Investment Fund"),
+      enabled: true,
+      accountType: StateAccountType.VAULT,
+      baseAssetMint: WSOL, // Use wrapped SOL as base asset
+    };
+    ```
+
+    The `name` must be converted to a character array using `stringToChars()`. The base asset mint determines what asset investors deposit.
+  </Step>
+
+  <Step title="Initialize the vault">
+    Call `state.initialize()` to create the vault on-chain:
+
+    ```typescript
+    const txOptions = {
+      maxFeeLamports: 10_000,
+      useMaxFee: true,
+      simulate: true,
+    };
+
+    const txSig = await glamClient.state.initialize(vaultParams, txOptions);
+
+    console.log("Vault created:", txSig);
+    console.log("Vault address:", glamClient.vaultPda.toBase58());
+    console.log("State address:", glamClient.statePda.toBase58());
+    ```
+
+    The transaction signature is returned upon successful creation. The vault and state PDAs are automatically set on the client instance.
+  </Step>
+
+  <Step title="Verify vault creation">
+    After creation, you can fetch the vault state to verify:
+
+    ```typescript
+    const stateAccount = await glamClient.fetchStateAccount();
+    console.log("Vault name:", stateAccount.nameStr);
+    console.log("Vault owner:", stateAccount.owner.toBase58());
+    console.log("Base asset:", stateAccount.baseAssetMint.toBase58());
+    ```
+  </Step>
+</Steps>
+
+## Complete example
+
+Here's a complete example from the SDK's Node.js application:
+
+```typescript examples/nodejs-app/src/index.ts
+import { GlamClient, stringToChars, StateAccountType, WSOL } from "@glamsystems/glam-sdk";
+import { PublicKey } from "@solana/web3.js";
+
+const txOptions = {
+  maxFeeLamports: 10_000,
+  useMaxFee: true,
+  simulate: true,
+};
+
+// Initialize client
+const glamClient = new GlamClient();
+
+// Create vault
+const txSig = await glamClient.state.initialize(
+  {
+    name: stringToChars("My Fund"),
+    enabled: true,
+    accountType: StateAccountType.VAULT,
+    baseAssetMint: new PublicKey("So11111111111111111111111111111111111111112"),
+  },
+  txOptions,
+);
+
+console.log("✅ Vault created successfully:", txSig);
+console.log("Vault address:", glamClient.vaultPda.toBase58());
+```
+
+## Working with existing vaults
+
+To connect to an existing vault, you need the state PDA:
+
+```typescript examples/nodejs-app/src/utils.ts
+import { GlamClient } from "@glamsystems/glam-sdk";
+import { Connection, PublicKey } from "@solana/web3.js";
+
+async function getVaultStatePubkey(
+  connection: Connection,
+  vault: PublicKey,
+  glamProtocolProgramId: PublicKey,
+) {
+  const vaultState = await connection.getProgramAccounts(
+    glamProtocolProgramId,
+    {
+      filters: [{ memcmp: { offset: 10, bytes: vault.toBase58() } }],
+    },
+  );
+  if (vaultState.length === 0) {
+    throw new Error("Vault not found");
+  }
+  return vaultState[0].pubkey;
+}
+
+export async function createGlamClient(vault: PublicKey) {
+  const glamClient = new GlamClient();
+  const vaultState = await getVaultStatePubkey(
+    glamClient.provider.connection,
+    vault,
+    glamClient.protocolProgram.programId,
+  );
+  glamClient.statePda = vaultState;
+  return glamClient;
+}
+```
+
+## Updating vault state
+
+After creation, you can update vault configuration:
+
+```typescript
+// Update vault name
+await glamClient.state.update(
+  {
+    name: stringToChars("Updated Fund Name"),
+  },
+  txOptions,
+);
+
+// Update owner
+await glamClient.state.update(
+  {
+    owner: new PublicKey("new_owner_pubkey"),
+  },
+  txOptions,
+);
+```
+
+If the vault has timelock enabled, updates are staged and applied after the timelock period.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Managing assets" href="/guides/managing-assets" icon="coins">
+    Learn how to deposit, withdraw, and transfer assets
+  </Card>
+  <Card title="Access control" href="/guides/access-control" icon="shield">
+    Set up permissions and delegate access
+  </Card>
+</CardGroup>

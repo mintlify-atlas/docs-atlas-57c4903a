@@ -1,0 +1,341 @@
+---
+title: StakePoolClient and StakeClient
+---
+
+Clients for native staking and stake pool operations.
+
+## StakePoolClient
+
+Client for interacting with stake pools (liquid staking tokens).
+
+### Constructor
+
+```typescript
+new StakePoolClient(
+  base: BaseClient,
+  stake: StakeClient,
+  marinade: MarinadeClient
+)
+```
+
+<ParamField path="base" type="BaseClient" required>
+  Base client instance
+</ParamField>
+
+<ParamField path="stake" type="StakeClient" required>
+  Stake client instance
+</ParamField>
+
+<ParamField path="marinade" type="MarinadeClient" required>
+  Marinade client instance
+</ParamField>
+
+### Methods
+
+#### depositSol
+
+Deposits SOL to a stake pool and receives pool tokens.
+
+```typescript
+await client.stakePool.depositSol(
+  stakePool: PublicKey,
+  amount: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="stakePool" type="PublicKey" required>
+  Stake pool address
+</ParamField>
+
+<ParamField path="amount" type="BN" required>
+  Amount of SOL to deposit in lamports
+</ParamField>
+
+#### depositStake
+
+Deposits a stake account to a stake pool.
+
+```typescript
+await client.stakePool.depositStake(
+  stakePool: PublicKey,
+  stakeAccount: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="stakeAccount" type="PublicKey" required>
+  Stake account to deposit
+</ParamField>
+
+#### withdrawStake
+
+Withdraws pool tokens for a stake account.
+
+```typescript
+await client.stakePool.withdrawStake(
+  stakePool: PublicKey,
+  amount: BN,
+  deactivate?: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="amount" type="BN" required>
+  Amount of pool tokens to withdraw
+</ParamField>
+
+<ParamField path="deactivate" type="boolean" default="false">
+  Whether to deactivate the stake account immediately
+</ParamField>
+
+#### unstake
+
+Unstakes any liquid staking token (LST) back to native stake.
+
+```typescript
+await client.stakePool.unstake(
+  asset: PublicKey,
+  amount: number | BN,
+  deactivate?: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="asset" type="PublicKey" required>
+  LST mint address (e.g., mSOL, JitoSOL, bSOL)
+</ParamField>
+
+<ParamField path="amount" type="number | BN" required>
+  Amount of LST to unstake
+</ParamField>
+
+<ParamField path="deactivate" type="boolean" default="false">
+  Whether to deactivate the stake account immediately
+</ParamField>
+
+### Data Fetching
+
+#### getStakePoolAccountData
+
+Fetches stake pool account data.
+
+```typescript
+await client.stakePool.getStakePoolAccountData(
+  stakePool: PublicKey
+): Promise<StakePoolAccountData>
+```
+
+**Returns:** Stake pool configuration and state
+
+#### getStakeAccountVoter
+
+Gets the vote account for a stake account.
+
+```typescript
+await client.stakePool.getStakeAccountVoter(
+  stakeAccount: PublicKey
+): Promise<PublicKey | null>
+```
+
+## StakeClient
+
+Client for native staking operations.
+
+### Constructor
+
+```typescript
+new StakeClient(
+  base: BaseClient
+)
+```
+
+<ParamField path="base" type="BaseClient" required>
+  Base client instance
+</ParamField>
+
+### Methods
+
+#### initializeAndDelegateStake
+
+Creates a new stake account, initializes it, and delegates to a validator.
+
+```typescript
+await client.stake.initializeAndDelegateStake(
+  vote: PublicKey,
+  amount: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="vote" type="PublicKey" required>
+  Vote account address of the validator
+</ParamField>
+
+<ParamField path="amount" type="BN" required>
+  Amount to stake in lamports
+</ParamField>
+
+#### deactivate
+
+Deactivates one or more stake accounts.
+
+```typescript
+await client.stake.deactivate(
+  stakeAccounts: PublicKey[],
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="stakeAccounts" type="PublicKey[]" required>
+  Array of stake accounts to deactivate
+</ParamField>
+
+#### withdraw
+
+Withdraws from deactivated stake accounts.
+
+```typescript
+await client.stake.withdraw(
+  stakeAccounts: PublicKey[],
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="stakeAccounts" type="PublicKey[]" required>
+  Array of deactivated stake accounts to withdraw from
+</ParamField>
+
+#### merge
+
+Merges two stake accounts.
+
+```typescript
+await client.stake.merge(
+  destinationStake: PublicKey,
+  sourceStake: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="destinationStake" type="PublicKey" required>
+  Destination stake account
+</ParamField>
+
+<ParamField path="sourceStake" type="PublicKey" required>
+  Source stake account (will be closed)
+</ParamField>
+
+#### split
+
+Splits a stake account into two.
+
+```typescript
+await client.stake.split(
+  existingStake: PublicKey,
+  lamports: BN,
+  txOptions?: TxOptions
+): Promise<{
+  newStake: PublicKey;
+  txSig: TransactionSignature;
+}>
+```
+
+<ParamField path="existingStake" type="PublicKey" required>
+  Existing stake account to split
+</ParamField>
+
+<ParamField path="lamports" type="BN" required>
+  Amount to split into the new stake account
+</ParamField>
+
+**Returns:** Object containing the new stake account address and transaction signature
+
+#### move
+
+Moves stake from one account to another.
+
+```typescript
+await client.stake.move(
+  sourceStake: PublicKey,
+  destinationStake: PublicKey,
+  amount: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="sourceStake" type="PublicKey" required>
+  Source stake account
+</ParamField>
+
+<ParamField path="destinationStake" type="PublicKey" required>
+  Destination stake account
+</ParamField>
+
+<ParamField path="amount" type="BN" required>
+  Amount to move in lamports
+</ParamField>
+
+### Helper Methods
+
+#### createStakeAccount
+
+Creates a new empty stake account.
+
+```typescript
+await client.stake.createStakeAccount(
+  signer: PublicKey
+): Promise<[PublicKey, TransactionInstruction]>
+```
+
+**Returns:** Tuple of `[stakeAccountAddress, createInstruction]`
+
+#### getStakeAccountVoter
+
+Gets the vote account a stake account is delegated to.
+
+```typescript
+await client.stake.getStakeAccountVoter(
+  stakeAccount: PublicKey
+): Promise<PublicKey | null>
+```
+
+## Example
+
+```typescript
+import { BN } from '@coral-xyz/anchor';
+import { PublicKey } from '@solana/web3.js';
+import { GlamClient } from '@glam/anchor';
+
+const client = new GlamClient();
+
+// Native staking to a validator
+const voteAccount = new PublicKey('...');
+const stakeSig = await client.stake.initializeAndDelegateStake(
+  voteAccount,
+  new BN(10_000_000_000) // 10 SOL
+);
+
+// Deposit SOL to a stake pool
+const stakePoolAddress = new PublicKey('...');
+const depositSig = await client.stakePool.depositSol(
+  stakePoolAddress,
+  new BN(5_000_000_000) // 5 SOL
+);
+
+// Unstake mSOL back to native stake
+const MSOL = new PublicKey('mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So');
+const unstakeSig = await client.stakePool.unstake(
+  MSOL,
+  new BN(1_000_000_000), // 1 mSOL
+  true // deactivate immediately
+);
+
+// Split a stake account
+const stakeAccount = new PublicKey('...');
+const { newStake, txSig } = await client.stake.split(
+  stakeAccount,
+  new BN(2_000_000_000) // Split 2 SOL into new account
+);
+console.log('New stake account:', newStake.toBase58());
+```

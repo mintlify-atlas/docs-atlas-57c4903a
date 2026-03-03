@@ -1,0 +1,278 @@
+---
+title: GlamClient
+description: Main entrypoint for the GLAM SDK with lazy-loaded client modules
+---
+
+## Overview
+
+`GlamClient` is the main entrypoint for the GLAM SDK. It extends `BaseClient` and provides access to all specialized client modules through lazy-loaded getters.
+
+## Constructor
+
+```typescript
+new GlamClient(config?: GlamClientConfig)
+```
+
+<ParamField path="config" type="GlamClientConfig" optional>
+  Configuration options for the client
+  
+  <Expandable title="properties">
+    <ParamField path="provider" type="anchor.Provider" optional>
+      Anchor provider instance
+    </ParamField>
+    <ParamField path="wallet" type="Wallet" optional>
+      Wallet instance for signing transactions
+    </ParamField>
+    <ParamField path="cluster" type="ClusterNetwork" optional>
+      Solana cluster network (mainnet-beta, devnet, testnet, localnet, custom)
+    </ParamField>
+    <ParamField path="statePda" type="PublicKey" optional>
+      State account public key to connect to a vault
+    </ParamField>
+    <ParamField path="jupiterApiKey" type="string" optional>
+      Jupiter API key for swap operations
+    </ParamField>
+    <ParamField path="jupiterApiClient" type="JupiterApiClient" optional>
+      Custom Jupiter API client instance
+    </ParamField>
+    <ParamField path="useStaging" type="boolean" optional>
+      Use staging programs instead of production
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Example
+
+```typescript
+import { GlamClient } from "@glam/sdk";
+import { Connection, Keypair } from "@solana/web3.js";
+import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
+
+const connection = new Connection("https://api.mainnet-beta.solana.com");
+const wallet = new Wallet(Keypair.generate());
+const provider = new AnchorProvider(connection, wallet, {});
+
+const client = new GlamClient({ provider });
+```
+
+## Core client modules
+
+These properties provide access to core GLAM functionality. All modules are lazy-loaded on first access.
+
+### vault
+
+```typescript
+client.vault: VaultClient
+```
+
+Access vault operations like deposits, withdrawals, and token transfers.
+
+```typescript
+// Deposit SOL to vault
+await client.vault.depositSol(1000000); // 0.001 SOL
+
+// Transfer tokens from vault
+await client.vault.tokenTransfer(usdcMint, 1000000, recipient);
+```
+
+### state
+
+```typescript
+client.state: StateClient
+```
+
+Manage vault state including initialization and updates.
+
+```typescript
+// Initialize a new vault
+await client.state.initialize({
+  accountType: StateAccountType.TOKENIZED_VAULT,
+  name: stringToChars("My Fund"),
+  baseAssetMint: NATIVE_MINT,
+});
+
+// Update vault configuration
+await client.state.update({
+  reduceOnly: true,
+  timelockDuration: 86400, // 1 day
+});
+```
+
+### invest
+
+```typescript
+client.invest: InvestClient
+```
+
+Handle investor subscriptions and redemptions.
+
+```typescript
+// Subscribe to the fund
+await client.invest.subscribe(new BN(1000000));
+
+// Queue a redemption
+await client.invest.queuedRedeem(new BN(500000));
+
+// Claim pending request
+await client.invest.claim();
+```
+
+### price
+
+```typescript
+client.price: PriceClient
+```
+
+Fetch pricing data for assets and calculate NAV.
+
+### fees
+
+```typescript
+client.fees: FeesClient
+```
+
+Manage and collect management and performance fees.
+
+### mint
+
+```typescript
+client.mint: MintClient
+```
+
+Manage vault share token minting and metadata.
+
+### access
+
+```typescript
+client.access: AccessClient
+```
+
+Control access permissions and ACLs.
+
+### timelock
+
+```typescript
+client.timelock: TimelockClient
+```
+
+Manage time-delayed state updates.
+
+## Protocol integration modules
+
+These properties provide access to DeFi protocol integrations.
+
+### jupiterSwap
+
+```typescript
+client.jupiterSwap: JupiterSwapClient
+```
+
+Execute token swaps via Jupiter.
+
+```typescript
+await client.jupiterSwap.swap({
+  inputMint: WSOL,
+  outputMint: USDC,
+  amount: new BN(1000000),
+});
+```
+
+### drift
+
+```typescript
+client.drift: DriftProtocolClient
+```
+
+Interact with Drift Protocol for perpetuals trading.
+
+### driftVaults
+
+```typescript
+client.driftVaults: DriftVaultsClient
+```
+
+Manage Drift vault positions.
+
+### kaminoLending
+
+```typescript
+client.kaminoLending: KaminoLendingClient
+```
+
+Deposit and borrow assets via Kamino lending markets.
+
+### kaminoFarm
+
+```typescript
+client.kaminoFarm: KaminoFarmClient
+```
+
+Stake LP tokens in Kamino farms.
+
+### kaminoVaults
+
+```typescript
+client.kaminoVaults: KaminoVaultsClient
+```
+
+Manage Kamino vault positions.
+
+### marinade
+
+```typescript
+client.marinade: MarinadeClient
+```
+
+Stake SOL via Marinade Finance.
+
+### stake
+
+```typescript
+client.stake: StakeClient
+```
+
+Manage native Solana staking.
+
+### stakePool
+
+```typescript
+client.stakePool: StakePoolClient
+```
+
+Interact with SPL stake pools.
+
+### cctp
+
+```typescript
+client.cctp: CctpClient
+```
+
+Cross-chain USDC transfers via Circle's CCTP.
+
+<Note>
+All client modules are lazy-loaded, meaning they are only instantiated when first accessed. This improves initialization performance.
+</Note>
+
+## Inherited properties
+
+`GlamClient` extends `BaseClient` and inherits all its properties and methods. See [BaseClient](/api/base-client) for the full API.
+
+### Key inherited properties
+
+```typescript
+client.provider: anchor.Provider
+client.connection: Connection
+client.signer: PublicKey
+client.wallet: Wallet
+client.cluster: ClusterNetwork
+client.statePda: PublicKey
+client.vaultPda: PublicKey
+client.mintPda: PublicKey
+```
+
+## Related
+
+- [BaseClient](/api/base-client) - Base functionality and utilities
+- [VaultClient](/api/vault-client) - Vault operations
+- [StateClient](/api/state-client) - State management
+- [InvestClient](/api/invest-client) - Subscriptions and redemptions

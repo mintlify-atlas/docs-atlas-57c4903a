@@ -1,0 +1,291 @@
+---
+title: CctpClient
+description: Bridge USDC cross-chain using Circle's CCTP protocol
+---
+
+## Overview
+
+The `CctpClient` enables bridging USDC between Solana and other blockchains using Circle's Cross-Chain Transfer Protocol (CCTP).
+
+## Methods
+
+### bridgeUsdc
+
+Bridges USDC from Solana to another chain using CCTP.
+
+```typescript
+bridgeUsdc(
+  amount: BN | number,
+  domain: number,
+  destinationAddress: PublicKey,
+  params: {
+    maxFee: BN;
+    minFinalityThreshold: number;
+    destinationCaller?: PublicKey;
+  },
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="amount" type="BN | number" required>
+  Amount of USDC to bridge in smallest units (6 decimals)
+</ParamField>
+
+<ParamField path="domain" type="number" required>
+  Destination domain (0=Ethereum, 1=Avalanche, 2=OP Mainnet, 3=Arbitrum, 6=Base, 7=Polygon)
+</ParamField>
+
+<ParamField path="destinationAddress" type="PublicKey" required>
+  Destination address on target chain (EVM address as PublicKey)
+</ParamField>
+
+<ParamField path="params.maxFee" type="BN" required>
+  Maximum fee willing to pay
+</ParamField>
+
+<ParamField path="params.minFinalityThreshold" type="number" required>
+  Minimum finality threshold
+</ParamField>
+
+<ParamField path="params.destinationCaller" type="PublicKey">
+  Optional caller on destination chain
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+
+// Bridge 100 USDC to Ethereum
+const evmAddress = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb";
+const evmAddressPubkey = new PublicKey(
+  Buffer.from(evmAddress.slice(2), "hex")
+);
+
+const signature = await glamClient.cctp.bridgeUsdc(
+  new BN(100_000000), // 100 USDC
+  0, // Ethereum domain
+  evmAddressPubkey,
+  {
+    maxFee: new BN(1000),
+    minFinalityThreshold: 1
+  }
+);
+
+console.log("Bridge transaction:", signature);
+```
+
+### receiveUsdc
+
+Receives USDC from another chain using CCTP attestation.
+
+```typescript
+receiveUsdc(
+  sourceDomain: number,
+  params: {
+    txHash?: string;
+    nonce?: string;
+  },
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="sourceDomain" type="number" required>
+  Source domain (0=Ethereum, 6=Base, etc.)
+</ParamField>
+
+<ParamField path="params.txHash" type="string">
+  Source chain transaction hash
+</ParamField>
+
+<ParamField path="params.nonce" type="string">
+  CCTP message nonce
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+// Receive USDC from Ethereum using transaction hash
+const signature = await glamClient.cctp.receiveUsdc(
+  0, // Ethereum domain
+  {
+    txHash: "0xabcdef..."
+  }
+);
+
+console.log("Receive transaction:", signature);
+```
+
+### getOutgoingBridgeEvents
+
+Fetches outgoing bridge events (Solana → EVM) for the vault.
+
+```typescript
+getOutgoingBridgeEvents(options: {
+  batchSize?: number;
+  commitment?: Commitment;
+  txHashes?: string[];
+  minSlot?: number;
+}): Promise<CctpBridgeEvent[]>
+```
+
+<ParamField path="options.batchSize" type="number" default="1">
+  Batch size for RPC requests
+</ParamField>
+
+<ParamField path="options.commitment" type="Commitment" default="confirmed">
+  Solana commitment level
+</ParamField>
+
+<ParamField path="options.txHashes" type="string[]">
+  Specific transaction hashes to fetch
+</ParamField>
+
+<ParamField path="options.minSlot" type="number" default="0">
+  Minimum slot to search from
+</ParamField>
+
+**Example**
+
+```typescript
+const outgoingEvents = await glamClient.cctp.getOutgoingBridgeEvents({
+  minSlot: 250000000,
+  batchSize: 5
+});
+
+outgoingEvents.forEach(event => {
+  console.log(`Sent ${event.uiAmount} USDC to domain ${event.destinationDomain}`);
+  console.log(`Status: ${event.status}`);
+  console.log(`Tx: ${event.txHash}`);
+});
+```
+
+### getIncomingBridgeEvents
+
+Fetches incoming bridge events (EVM → Solana) for the vault.
+
+```typescript
+getIncomingBridgeEvents(options: {
+  batchSize?: number;
+  commitment?: Finality;
+  txHashes?: string[];
+  minSlot?: number;
+}): Promise<CctpBridgeEvent[]>
+```
+
+<ParamField path="options.batchSize" type="number" default="1">
+  Batch size for RPC requests
+</ParamField>
+
+<ParamField path="options.commitment" type="Finality" default="confirmed">
+  Solana finality level
+</ParamField>
+
+<ParamField path="options.txHashes" type="string[]">
+  Specific transaction hashes to fetch
+</ParamField>
+
+<ParamField path="options.minSlot" type="number" default="0">
+  Minimum slot to search from
+</ParamField>
+
+**Example**
+
+```typescript
+const incomingEvents = await glamClient.cctp.getIncomingBridgeEvents({
+  minSlot: 250000000
+});
+
+incomingEvents.forEach(event => {
+  console.log(`Received ${event.uiAmount} USDC from domain ${event.sourceDomain}`);
+  console.log(`Slot: ${event.slot}`);
+});
+```
+
+## Types
+
+### CctpBridgeEvent
+
+```typescript
+class CctpBridgeEvent {
+  readonly uiAmount: number;
+  slot?: number;
+  
+  constructor(
+    readonly amount: BN,
+    readonly sourceDomain: number,
+    readonly sourceAddress: string,
+    readonly destinationDomain: number,
+    readonly destinationCaller: string,
+    readonly destinationAddress: string,
+    readonly attestation: string,
+    readonly nonce: string,
+    readonly status: string,
+    readonly txHash: string
+  );
+}
+```
+
+## CCTP domains
+
+| Chain | Domain |
+|-------|--------|
+| Ethereum | 0 |
+| Avalanche | 1 |
+| OP Mainnet | 2 |
+| Arbitrum | 3 |
+| Solana | 5 |
+| Base | 6 |
+| Polygon | 7 |
+
+## Complete bridge example
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+
+// 1. Bridge USDC from Solana to Base
+const evmAddress = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb";
+const evmPubkey = new PublicKey(Buffer.from(evmAddress.slice(2), "hex"));
+
+const bridgeTx = await glamClient.cctp.bridgeUsdc(
+  new BN(50_000000), // 50 USDC
+  6, // Base domain
+  evmPubkey,
+  {
+    maxFee: new BN(1000),
+    minFinalityThreshold: 1
+  }
+);
+
+console.log("Bridged to Base:", bridgeTx);
+
+// 2. Wait for attestation (typically 10-20 minutes)
+// ...
+
+// 3. On another instance, receive USDC from Base
+const receiveTx = await glamClient.cctp.receiveUsdc(
+  6, // Base domain
+  {
+    txHash: bridgeTx
+  }
+);
+
+console.log("Received from Base:", receiveTx);
+
+// 4. Query bridge history
+const outgoing = await glamClient.cctp.getOutgoingBridgeEvents({});
+const incoming = await glamClient.cctp.getIncomingBridgeEvents({});
+
+console.log(`Outgoing transfers: ${outgoing.length}`);
+console.log(`Incoming transfers: ${incoming.length}`);
+```

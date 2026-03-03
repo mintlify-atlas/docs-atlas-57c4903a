@@ -1,0 +1,450 @@
+---
+title: InvestClient
+description: Client for handling investor subscriptions, redemptions, and share token operations
+---
+
+## Overview
+
+`InvestClient` manages investor operations including subscribing to funds, redeeming shares, and managing queued requests.
+
+## Access
+
+```typescript
+const client = new GlamClient();
+client.invest.subscribe(...);
+```
+
+## Methods
+
+### subscribe
+
+```typescript
+async subscribe(
+  amount: BN,
+  queued?: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Subscribes to the fund by depositing the base asset and receiving share tokens.
+
+<ParamField path="amount" type="BN" required>
+  Amount of base asset to deposit (in smallest unit)
+</ParamField>
+
+<ParamField path="queued" type="boolean" default="false">
+  Whether to queue the subscription for later fulfillment or execute immediately
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+// Immediate subscription - get shares right away
+await client.invest.subscribe(new BN(100_000_000)); // 100 USDC
+
+// Queued subscription - request is pending until fulfilled by manager
+await client.invest.subscribe(new BN(100_000_000), true);
+```
+
+<Note>
+**Immediate vs Queued subscriptions:**
+
+- **Immediate** (queued=false): Investor receives shares immediately at current share price. Used when the vault accepts instant subscriptions.
+
+- **Queued** (queued=true): Subscription is added to request queue. The manager must fulfill it later at the NAV calculated at fulfillment time. Investor must then claim their shares.
+
+For SOL/wSOL deposits, the method automatically wraps and unwraps as needed.
+</Note>
+
+### queuedRedeem
+
+```typescript
+async queuedRedeem(
+  amount: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Queues a redemption request to convert share tokens back to the base asset.
+
+<ParamField path="amount" type="BN" required>
+  Amount of share tokens to redeem (in smallest unit, typically 9 decimals)
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Queue redemption of 50 share tokens
+await client.invest.queuedRedeem(new BN(50_000_000_000));
+```
+
+<Note>
+Redemptions are always queued. The manager must fulfill the request, then the investor can claim their base asset.
+
+If lockup is enabled on the fund, share tokens are transferred to escrow until the redemption is fulfilled or cancelled.
+</Note>
+
+### cancel
+
+```typescript
+async cancel(txOptions?: TxOptions): Promise<TransactionSignature>
+```
+
+Cancels the signer's own pending subscription or redemption request.
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Cancel my pending request
+await client.invest.cancel();
+```
+
+### cancelForUser
+
+```typescript
+async cancelForUser(
+  user: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Cancels a pending request for another user. Only the vault manager can do this.
+
+<ParamField path="user" type="PublicKey" required>
+  User whose request to cancel
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Manager cancels a user's request
+await client.invest.cancelForUser(userPubkey);
+```
+
+### fulfill
+
+```typescript
+async fulfill(
+  limit: number | null,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Fulfills pending subscription and redemption requests. Only callable by vault manager.
+
+<ParamField path="limit" type="number | null" required>
+  Maximum number of requests to fulfill in this transaction, or `null` to fulfill all
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Fulfill up to 10 pending requests
+await client.invest.fulfill(10);
+
+// Fulfill all pending requests
+await client.invest.fulfill(null);
+```
+
+<Note>
+Fulfillment calculates the current NAV and determines how many shares to mint (for subscriptions) or how much base asset to return (for redemptions). Investors must call `claim()` after fulfillment to receive their tokens.
+</Note>
+
+### claim
+
+```typescript
+async claim(txOptions?: TxOptions): Promise<TransactionSignature>
+```
+
+Claims the signer's fulfilled subscription or redemption.
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Claim my fulfilled request
+await client.invest.claim();
+```
+
+<Note>
+For subscriptions, this transfers share tokens from escrow to the investor.
+
+For redemptions, this transfers the base asset from escrow to the investor. If the base asset is wSOL, the account is automatically closed to return native SOL.
+</Note>
+
+### claimForUser
+
+```typescript
+async claimForUser(
+  user: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Claims a fulfilled request on behalf of another user.
+
+<ParamField path="user" type="PublicKey" required>
+  User whose request to claim
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Claim for a user
+await client.invest.claimForUser(userPubkey);
+```
+
+### fetchPendingRequest
+
+```typescript
+async fetchPendingRequest(
+  user?: PublicKey
+): Promise<PendingRequest | null>
+```
+
+Fetches the pending request for a user.
+
+<ParamField path="user" type="PublicKey" optional>
+  User to fetch request for. Defaults to signer
+</ParamField>
+
+Returns `PendingRequest` object or `null` if no pending request exists.
+
+```typescript
+// Check if I have a pending request
+const myRequest = await client.invest.fetchPendingRequest();
+
+if (myRequest) {
+  console.log("Request type:", myRequest.requestType);
+  console.log("Amount:", myRequest.amount.toString());
+  console.log("Fulfilled:", myRequest.fulfilled);
+}
+
+// Check another user's pending request
+const userRequest = await client.invest.fetchPendingRequest(userPubkey);
+```
+
+## Transaction builder
+
+For advanced use cases, access the transaction builder directly:
+
+```typescript
+client.invest.txBuilder: TxBuilder
+```
+
+The builder provides methods that return instructions or transactions without sending:
+
+### subscribeIxs
+
+```typescript
+async subscribeIxs(
+  amount: BN,
+  signer: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+Returns instructions for immediate subscription.
+
+### subscribeTx
+
+```typescript
+async subscribeTx(
+  amount: BN,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction for immediate subscription.
+
+### queuedSubscribeIxs
+
+```typescript
+async queuedSubscribeIxs(
+  amount: BN,
+  signer: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+Returns instructions for queued subscription.
+
+### queuedSubscribeTx
+
+```typescript
+async queuedSubscribeTx(
+  amount: BN,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction for queued subscription.
+
+### queuedRedeemIx
+
+```typescript
+async queuedRedeemIx(
+  amount: BN,
+  signer: PublicKey
+): Promise<TransactionInstruction>
+```
+
+Returns instruction for queued redemption.
+
+### queuedRedeemTx
+
+```typescript
+async queuedRedeemTx(
+  amount: BN,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction for queued redemption.
+
+### cancelIx
+
+```typescript
+async cancelIx(
+  pubkey: PublicKey | null,
+  signer: PublicKey
+): Promise<TransactionInstruction>
+```
+
+Returns instruction to cancel a request.
+
+### cancelTx
+
+```typescript
+async cancelTx(
+  pubkey: PublicKey | null,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to cancel a request.
+
+### fulfillIx
+
+```typescript
+async fulfillIx(
+  limit: number | null,
+  signer: PublicKey
+): Promise<TransactionInstruction>
+```
+
+Returns instruction to fulfill requests.
+
+### fulfillTx
+
+```typescript
+async fulfillTx(
+  limit: number | null,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to fulfill requests.
+
+### claimIx
+
+```typescript
+async claimIx(
+  user: PublicKey | null,
+  signer: PublicKey
+): Promise<TransactionInstruction>
+```
+
+Returns instruction to claim a fulfilled request.
+
+### claimTx
+
+```typescript
+async claimTx(
+  user: PublicKey | null,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to claim a fulfilled request.
+
+## Types
+
+### PendingRequest
+
+```typescript
+type PendingRequest = {
+  user: PublicKey;
+  requestType: RequestType;
+  amount: BN;
+  fulfilled: boolean;
+  // ... additional fields
+}
+```
+
+### RequestType
+
+```typescript
+class RequestType {
+  static readonly SUBSCRIPTION = { subscription: {} };
+  static readonly REDEMPTION = { redemption: {} };
+  
+  static equals(a: RequestType, b: RequestType): boolean;
+}
+```
+
+## Example usage
+
+```typescript
+import { GlamClient } from "@glam/sdk";
+import { PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+
+const client = new GlamClient();
+client.statePda = new PublicKey("your-vault-state-pda");
+
+// Investor subscribes with 100 USDC (queued)
+await client.invest.subscribe(new BN(100_000_000), true);
+
+// Check pending request
+const pending = await client.invest.fetchPendingRequest();
+console.log("Pending subscription:", pending?.amount.toString());
+
+// Manager fulfills requests
+await client.invest.fulfill(null);
+
+// Investor claims their shares
+await client.invest.claim();
+
+// Check share balance
+const balance = await client.getMintTokenBalance();
+console.log("Share tokens:", balance.uiAmount);
+
+// Later, investor redeems 50 shares
+await client.invest.queuedRedeem(new BN(50_000_000_000));
+
+// Manager fulfills redemption
+await client.invest.fulfill(null);
+
+// Investor claims base asset
+await client.invest.claim();
+```
+
+## Related
+
+- [VaultClient](/api/vault-client) - Vault operations
+- [BaseClient](/api/base-client) - Balance queries
+- [Managing assets](/guides/managing-assets) - Asset management guide

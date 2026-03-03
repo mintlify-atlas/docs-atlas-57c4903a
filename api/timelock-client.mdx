@@ -1,0 +1,134 @@
+---
+title: TimelockClient
+description: Manage timelock for delayed vault parameter updates
+---
+
+## Overview
+
+The `TimelockClient` manages the timelock mechanism that delays critical vault parameter changes. This provides investors time to review and potentially exit before changes take effect.
+
+## Methods
+
+### set
+
+Sets the timelock duration in seconds.
+
+```typescript
+set(
+  durationSeconds: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="durationSeconds" type="number" required>
+  Timelock duration in seconds
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+// Set 7-day timelock
+const signature = await glamClient.timelock.set(
+  7 * 24 * 60 * 60 // 7 days in seconds
+);
+```
+
+### apply
+
+Applies pending timelock updates after the timelock period expires.
+
+```typescript
+apply(
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+// Make a change that requires timelock
+await glamClient.state.update({ /* params */ });
+
+// Wait for timelock period to pass
+// ...
+
+// Apply the pending changes
+const signature = await glamClient.timelock.apply();
+console.log("Timelock applied:", signature);
+```
+
+### cancel
+
+Cancels pending timelock updates before they are applied.
+
+```typescript
+cancel(
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+// Cancel pending changes
+const signature = await glamClient.timelock.cancel();
+console.log("Timelock cancelled:", signature);
+```
+
+## Timelock workflow
+
+### Standard update flow
+
+```typescript
+// 1. Set timelock duration (e.g., 7 days)
+await glamClient.timelock.set(7 * 24 * 60 * 60);
+
+// 2. Make a parameter change
+await glamClient.mint.update({
+  lockupPeriod: 86400 // 24 hours
+});
+
+// 3. Wait for timelock period
+// Investors can review the pending change and exit if desired
+
+// 4. After timelock expires, apply the change
+await glamClient.timelock.apply();
+```
+
+### Cancelling a change
+
+```typescript
+// If you decide not to proceed with a change
+await glamClient.timelock.cancel();
+```
+
+## Account type handling
+
+The `apply` method automatically determines which timelock to apply based on the vault account type:
+
+- **Vault**: Applies state timelock
+- **Mint** or **TokenizedVault**: Applies mint timelock
+
+## Common timelock durations
+
+```typescript
+const ONE_DAY = 86400;
+const ONE_WEEK = 7 * 86400;
+const TWO_WEEKS = 14 * 86400;
+const ONE_MONTH = 30 * 86400;
+
+// Set 2-week timelock
+await glamClient.timelock.set(TWO_WEEKS);
+```

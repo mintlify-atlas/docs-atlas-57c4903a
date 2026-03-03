@@ -1,0 +1,169 @@
+---
+title: JupiterSwapClient
+---
+
+Client for executing token swaps via Jupiter integration.
+
+## Constructor
+
+```typescript
+new JupiterSwapClient(
+  base: BaseClient,
+  vault: VaultClient
+)
+```
+
+<ParamField path="base" type="BaseClient" required>
+  Base client instance
+</ParamField>
+
+<ParamField path="vault" type="VaultClient" required>
+  Vault client instance
+</ParamField>
+
+## Methods
+
+### swap
+
+Executes a token swap using Jupiter.
+
+```typescript
+await client.jupiter.swap(
+  options: {
+    quoteParams?: QuoteParams;
+    quoteResponse?: QuoteResponse;
+    swapInstructions?: SwapInstructions;
+  },
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="options" type="object" required>
+  Swap configuration options. Provide one of: `quoteParams`, `quoteResponse`, or `swapInstructions`.
+  
+  <Expandable title="properties">
+    <ParamField path="quoteParams" type="QuoteParams">
+      Parameters to request a quote from Jupiter API
+      
+      <Expandable title="properties">
+        <ParamField path="inputMint" type="string" required>
+          Input token mint address
+        </ParamField>
+        <ParamField path="outputMint" type="string" required>
+          Output token mint address
+        </ParamField>
+        <ParamField path="amount" type="number" required>
+          Amount to swap in base units
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    
+    <ParamField path="quoteResponse" type="QuoteResponse">
+      Pre-fetched quote response from Jupiter API
+      
+      <Expandable title="properties">
+        <ParamField path="inputMint" type="string">
+          Input token mint address
+        </ParamField>
+        <ParamField path="outputMint" type="string">
+          Output token mint address
+        </ParamField>
+        <ParamField path="inAmount" type="string">
+          Input amount in base units
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    
+    <ParamField path="swapInstructions" type="SwapInstructions">
+      Pre-fetched swap instructions from Jupiter API
+      
+      <Expandable title="properties">
+        <ParamField path="swapInstruction" type="JupiterInstruction">
+          The swap instruction
+        </ParamField>
+        <ParamField path="addressLookupTableAddresses" type="string[]">
+          Lookup table addresses for the transaction
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options (signer, priority fee, etc.)
+</ParamField>
+
+**Returns:** Transaction signature
+
+## Properties
+
+### jupApi
+
+Jupiter API client for fetching quotes and swap instructions.
+
+```typescript
+client.jupiter.jupApi: JupiterApiClient
+```
+
+### txBuilder
+
+Transaction builder for constructing Jupiter swap transactions.
+
+```typescript
+client.jupiter.txBuilder: TxBuilder
+```
+
+## Transaction Builder Methods
+
+### swapTx
+
+Builds a swap transaction without sending it.
+
+```typescript
+await client.jupiter.txBuilder.swapTx(
+  options: {
+    quoteParams?: QuoteParams;
+    quoteResponse?: QuoteResponse;
+    swapInstructions?: SwapInstructions;
+  },
+  txOptions?: TxOptions
+): Promise<VersionedTransaction>
+```
+
+### swapIxs
+
+Returns swap instructions and lookup tables.
+
+```typescript
+await client.jupiter.txBuilder.swapIxs(
+  options: {
+    quoteParams?: QuoteParams;
+    quoteResponse?: QuoteResponse;
+    swapInstructions?: SwapInstructions;
+  },
+  glamSigner: PublicKey
+): Promise<[TransactionInstruction[], PublicKey[]]>
+```
+
+**Returns:** Tuple of `[instructions, lookupTables]`
+
+## Example
+
+```typescript
+import { PublicKey } from '@solana/web3.js';
+import { GlamClient } from '@glam/anchor';
+
+const client = new GlamClient();
+
+// Swap using quote parameters
+const signature = await client.jupiter.swap({
+  quoteParams: {
+    inputMint: 'So11111111111111111111111111111111111111112', // SOL
+    outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+    amount: 1000000000, // 1 SOL
+    slippageBps: 50 // 0.5%
+  }
+});
+
+console.log('Swap transaction:', signature);
+```

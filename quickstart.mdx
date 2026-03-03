@@ -1,80 +1,277 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Create your first GLAM vault and perform basic operations
 ---
 
-## Get started in three steps
+# Quickstart
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through creating a GLAM vault and performing your first deposit using the SDK.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+Before you begin, make sure you have:
+
+- Completed the [installation](/installation) steps
+- A Solana wallet with some SOL for transaction fees
+- Access to a Solana RPC endpoint
+
+## Initialize the client
+
+The `GlamClient` is the main entry point for the SDK. You can initialize it with default settings or provide custom configuration.
+
+### Basic initialization
+
+By default, `GlamClient` uses environment variables for configuration:
+
+```typescript
+import { GlamClient } from '@glamsystems/glam-sdk';
+
+// Uses ANCHOR_PROVIDER_URL and ANCHOR_WALLET from environment
+const glamClient = new GlamClient();
+```
+
+### Custom configuration
+
+You can also provide a custom configuration:
+
+```typescript
+import { GlamClient, ClusterNetwork } from '@glamsystems/glam-sdk';
+import { AnchorProvider, Wallet } from '@coral-xyz/anchor';
+import { Connection, Keypair } from '@solana/web3.js';
+import fs from 'fs';
+
+// Load your wallet
+const keypair = Keypair.fromSecretKey(
+  new Uint8Array(JSON.parse(fs.readFileSync('/path/to/keypair.json', 'utf-8')))
+);
+const wallet = new Wallet(keypair);
+
+// Create provider
+const connection = new Connection('https://api.devnet.solana.com');
+const provider = new AnchorProvider(connection, wallet);
+
+// Initialize client with custom config
+const glamClient = new GlamClient({
+  provider,
+  cluster: ClusterNetwork.Devnet
+});
+```
+
+## Create a vault
+
+Now let's create your first GLAM vault:
+
+<Steps>
+  <Step title="Import required utilities">
+    ```typescript
+    import { 
+      GlamClient, 
+      stringToChars, 
+      StateAccountType,
+      WSOL 
+    } from '@glamsystems/glam-sdk';
+    import { PublicKey } from '@solana/web3.js';
+    ```
+  </Step>
+  
+  <Step title="Initialize the vault">
+    ```typescript
+    const glamClient = new GlamClient();
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    // Transaction options
+    const txOptions = {
+      maxFeeLamports: 10_000,
+      useMaxFee: true,
+      simulate: true,
+    };
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    // Create the vault
+    const txSig = await glamClient.state.initialize(
+      {
+        name: stringToChars("My First Vault"),
+        enabled: true,
+        accountType: StateAccountType.VAULT,
+        baseAssetMint: WSOL, // Use wrapped SOL as base asset
+      },
+      txOptions
+    );
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    console.log('Transaction signature:', txSig);
+    console.log('Vault address:', glamClient.vaultPda.toBase58());
+    console.log('Vault state:', glamClient.statePda.toBase58());
+    ```
+  </Step>
+  
+  <Step title="Understanding the result">
+    After creating the vault, you'll receive:
+    - **Transaction signature** - Confirming the vault creation
+    - **Vault address** (`vaultPda`) - The main vault account
+    - **Vault state** (`statePda`) - The state/configuration account
+    
+    Save these addresses as you'll need them for future operations.
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Info>
+The `stringToChars` utility converts your vault name to the format expected by the protocol. Vault names are stored as fixed-length character arrays on-chain.
+</Info>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+## Deposit SOL
 
-### Step 3: Go live
+Once you have a vault, you can deposit SOL into it:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+```typescript
+import { BN } from '@coral-xyz/anchor';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+
+// Deposit 1 SOL
+const amount = new BN(1 * LAMPORTS_PER_SOL);
+const txSig = await glamClient.vault.depositSol(
+  amount,
+  true, // wrap SOL to WSOL
+  txOptions
+);
+
+console.log('Deposit successful:', txSig);
+```
+
+## Deposit SPL tokens
+
+You can also deposit any SPL token:
+
+```typescript
+import { fetchMintAndTokenProgram } from '@glamsystems/glam-sdk';
+
+const tokenMint = new PublicKey('YOUR_TOKEN_MINT_ADDRESS');
+
+// Fetch token metadata to get decimals
+const { mint } = await fetchMintAndTokenProgram(
+  glamClient.provider.connection,
+  tokenMint
+);
+
+// Deposit 10 tokens (accounting for decimals)
+const amount = new BN(10 * 10 ** mint.decimals);
+const txSig = await glamClient.vault.deposit(
+  tokenMint,
+  amount,
+  txOptions
+);
+
+console.log('Token deposit successful:', txSig);
+```
+
+## Working with existing vaults
+
+If you want to interact with a vault you created previously, you need to set the state PDA:
+
+```typescript
+import { PublicKey } from '@solana/web3.js';
+
+const glamClient = new GlamClient();
+
+// Set the state PDA for an existing vault
+const vaultStatePda = new PublicKey('YOUR_VAULT_STATE_ADDRESS');
+glamClient.statePda = vaultStatePda;
+
+// Now you can perform operations on this vault
+const amount = new BN(1 * LAMPORTS_PER_SOL);
+await glamClient.vault.depositSol(amount, true, txOptions);
+```
+
+<Note>
+You need to discover the vault state PDA from the vault address. See the [examples](https://github.com/glamsystems/glam-sdk/blob/main/examples/nodejs-app/src/utils.ts) for a helper function that does this.
+</Note>
+
+## Complete example
+
+Here's a complete working example that creates a vault and deposits SOL:
+
+```typescript example.ts
+import { 
+  GlamClient, 
+  stringToChars, 
+  StateAccountType,
+  WSOL 
+} from '@glamsystems/glam-sdk';
+import { BN } from '@coral-xyz/anchor';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+
+async function main() {
+  // Initialize client
+  const glamClient = new GlamClient();
+  
+  // Transaction options
+  const txOptions = {
+    maxFeeLamports: 10_000,
+    useMaxFee: true,
+    simulate: false, // Set to false for actual transactions
+  };
+  
+  try {
+    // Create vault
+    console.log('Creating vault...');
+    const createTxSig = await glamClient.state.initialize(
+      {
+        name: stringToChars("My Trading Vault"),
+        enabled: true,
+        accountType: StateAccountType.VAULT,
+        baseAssetMint: WSOL,
+      },
+      txOptions
+    );
+    
+    console.log('✅ Vault created!');
+    console.log('Transaction:', createTxSig);
+    console.log('Vault:', glamClient.vaultPda.toBase58());
+    console.log('State:', glamClient.statePda.toBase58());
+    
+    // Deposit SOL
+    console.log('\nDepositing SOL...');
+    const depositAmount = new BN(0.1 * LAMPORTS_PER_SOL);
+    const depositTxSig = await glamClient.vault.depositSol(
+      depositAmount,
+      true,
+      txOptions
+    );
+    
+    console.log('✅ Deposit successful!');
+    console.log('Transaction:', depositTxSig);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+main();
+```
+
+## Transaction options
+
+The `TxOptions` object allows you to configure transaction behavior:
+
+- `maxFeeLamports` - Maximum priority fee in lamports
+- `useMaxFee` - Whether to use the max fee
+- `simulate` - Simulate the transaction without sending (useful for testing)
+- `signer` - Custom signer (defaults to wallet from config)
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you've created a vault and made deposits, you can explore:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Access control" icon="shield">
+    Enable protocol integrations and set transfer policies
+  </Card>
+  
+  <Card title="DeFi integrations" icon="chart-line">
+    Swap on Jupiter, trade on Drift, lend on Kamino
+  </Card>
+  
+  <Card title="Staking" icon="coins">
+    Stake SOL or use liquid staking with Marinade
+  </Card>
+  
+  <Card title="Examples" icon="code" href="https://github.com/glamsystems/glam-sdk/tree/main/examples">
+    View complete example applications
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

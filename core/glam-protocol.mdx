@@ -1,0 +1,205 @@
+---
+title: GLAM protocol
+description: Understanding the GLAM Protocol architecture and core concepts
+---
+
+## What is GLAM?
+
+GLAM (General Liquidity Asset Manager) is a protocol built on Solana that enables you to create and manage on-chain investment vaults. The protocol provides a secure, flexible framework for managing digital assets with built-in access control, integration policies, and state management.
+
+## Protocol architecture
+
+The GLAM Protocol consists of several core programs that work together:
+
+### Core programs
+
+<CardGroup cols={2}>
+  <Card title="Protocol program" icon="shield">
+    Manages vault state, access control, and core operations
+  </Card>
+  <Card title="Mint program" icon="coins">
+    Handles tokenization, share minting/burning, and request queues
+  </Card>
+</CardGroup>
+
+### Integration programs
+
+GLAM supports multiple DeFi integrations through extension programs:
+
+- **ext_spl**: SPL token transfers and operations
+- **ext_drift**: Drift Protocol integration for perpetuals and lending
+- **ext_kamino**: Kamino lending, vaults, and farms
+- **ext_marinade**: Marinade liquid staking
+- **ext_stake_pool**: Sanctum and other stake pool integrations
+- **ext_cctp**: Cross-Chain Transfer Protocol support
+- **ext_offchain**: Off-chain AUM updates
+
+## Program-Derived Addresses (PDAs)
+
+The protocol uses PDAs to derive deterministic addresses for vault components:
+
+```typescript
+// State PDA: Unique identifier for a vault
+const statePda = getStatePda(
+  initKey,      // 8-byte hash of vault name
+  owner,        // Vault owner public key
+  programId     // Protocol program ID
+);
+
+// Vault PDA: Holds the vault's assets
+const vaultPda = getVaultPda(
+  statePda,
+  programId
+);
+
+// Mint PDA: Token mint for tokenized vaults
+const mintPda = getMintPda(
+  statePda,
+  mintIdx,      // Usually 0 for the first mint
+  mintProgramId
+);
+```
+
+<Note>
+All vault components are derived from the `statePda`, creating a hierarchical structure where the state account is the root of all vault-related PDAs.
+</Note>
+
+## Vault types
+
+The GLAM Protocol supports different vault account types defined in `StateAccountType`:
+
+| Type | Description | Use case |
+|------|-------------|----------|
+| **TOKENIZED_VAULT** | Full tokenization with share tokens | Public funds with subscriptions/redemptions |
+| **OPERATIONAL_VAULT** | Non-tokenized operational vault | Treasury management, DAO vaults |
+| **INVESTMENT_VAULT** | Investment-focused vault | Private funds, managed portfolios |
+
+## Network support
+
+The SDK supports multiple Solana networks through the `ClusterNetwork` enum:
+
+```typescript
+enum ClusterNetwork {
+  Mainnet = "mainnet-beta",
+  Testnet = "testnet",
+  Devnet = "devnet",
+  Localnet = "localnet",
+  Custom = "custom"
+}
+```
+
+The SDK can automatically detect the cluster from an RPC URL:
+
+```typescript
+const cluster = ClusterNetwork.fromUrl(rpcUrl);
+// Detects devnet, localhost, mainnet from URL patterns
+```
+
+## Access control
+
+GLAM implements a sophisticated access control system:
+
+### Owner permissions
+
+The vault owner has full control over:
+- State configuration updates
+- Access control management
+- Integration permissions
+- Asset allowlists
+
+### Delegate permissions
+
+Delegates can be granted specific permissions through `DelegateAcl`:
+
+```typescript
+type DelegateAcl = {
+  pubkey: PublicKey;                         // Delegate's public key
+  integrationPermissions: IntegrationPermissions[];
+  expiresAt: BN;                             // Optional expiration timestamp
+};
+```
+
+### Integration policies
+
+Integration ACLs control which protocols a vault can interact with:
+
+```typescript
+type IntegrationAcl = {
+  integrationProgram: PublicKey;             // Integration program ID
+  protocolsBitmask: number;                  // Enabled protocols (bitflag)
+  protocolPolicies: ProtocolPolicy[];        // Per-protocol policies
+};
+```
+
+Each protocol uses bitflags for permissions. For example, Kamino Lending:
+
+- Bit 0: Initialize obligation
+- Bit 1: Deposit collateral
+- Bit 2: Withdraw collateral
+- Bit 3: Borrow
+- Bit 4: Repay
+
+## Timelock system
+
+Vaults can enable a timelock for state updates, providing security for critical changes:
+
+```typescript
+type StateModel = {
+  timelockDuration: number;                  // Duration in seconds
+  pendingStateUpdates: any | null;           // Staged state changes
+  pendingMintUpdates: any | null;            // Staged mint changes
+  timelockExpiresAt: number | null;          // When changes can be applied
+};
+```
+
+When timelock is enabled:
+1. Updates are staged in `pendingStateUpdates` or `pendingMintUpdates`
+2. Changes must wait for `timelockDuration` before execution
+3. Updates can be applied after `timelockExpiresAt` is reached
+
+## Asset management
+
+Vaults track two categories of assets:
+
+```typescript
+type StateModel = {
+  assets: PublicKey[];                       // Allowed trading assets
+  borrowable: PublicKey[] | null;            // Assets that can be borrowed
+};
+```
+
+The combined set is used for pricing and portfolio valuation:
+
+```typescript
+// Union of assets and borrowable for pricing
+get assetsForPricing(): PublicKey[] {
+  const assets = new PkSet([...this.assets, ...(this.borrowable || [])]);
+  return Array.from(assets);
+}
+```
+
+## Staging environments
+
+The protocol supports both production and staging deployments:
+
+```typescript
+const client = new GlamClient({
+  useStaging: true  // Use staging program deployments
+});
+```
+
+Staging mode uses different program IDs for testing new features before production deployment.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Vaults" icon="vault" href="/core/vaults">
+    Learn about vault operations and management
+  </Card>
+  <Card title="Clients" icon="code" href="/core/clients">
+    Explore the client architecture
+  </Card>
+  <Card title="Configuration" icon="gear" href="/core/configuration">
+    Configure the SDK for your application
+  </Card>
+</CardGroup>

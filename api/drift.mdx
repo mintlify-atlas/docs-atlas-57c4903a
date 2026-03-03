@@ -1,0 +1,362 @@
+---
+title: Drift clients
+---
+
+Clients for interacting with Drift Protocol (perpetuals and spot trading) and Drift Vaults.
+
+## DriftProtocolClient
+
+Client for Drift Protocol trading operations.
+
+### Constructor
+
+```typescript
+new DriftProtocolClient(
+  base: BaseClient,
+  vault: VaultClient
+)
+```
+
+<ParamField path="base" type="BaseClient" required>
+  Base client instance
+</ParamField>
+
+<ParamField path="vault" type="VaultClient" required>
+  Vault client instance
+</ParamField>
+
+### Account management
+
+#### initialize
+
+Initializes a Drift user account.
+
+```typescript
+await client.drift.initialize(
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="subAccountId" type="number" default="0">
+  Sub-account ID (0-7)
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+#### deleteUser
+
+Deletes a Drift user account.
+
+```typescript
+await client.drift.deleteUser(
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+### Configuration
+
+#### updateUserCustomMarginRatio
+
+Sets the maximum leverage for an account.
+
+```typescript
+await client.drift.updateUserCustomMarginRatio(
+  maxLeverage: number,
+  subAccountId?: number
+): Promise<TransactionSignature>
+```
+
+<ParamField path="maxLeverage" type="number" required>
+  Maximum leverage (e.g., 5 for 5x leverage). Set to 0 to disable custom margin.
+</ParamField>
+
+#### updateUserMarginTradingEnabled
+
+Enables or disables margin trading.
+
+```typescript
+await client.drift.updateUserMarginTradingEnabled(
+  marginTradingEnabled: boolean,
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### updateUserDelegate
+
+Sets a delegate for the user account.
+
+```typescript
+await client.drift.updateUserDelegate(
+  delegate: PublicKey | string,
+  subAccountId?: number
+): Promise<TransactionSignature>
+```
+
+### Deposits and withdrawals
+
+#### deposit
+
+Deposits assets to Drift.
+
+```typescript
+await client.drift.deposit(
+  amount: BN,
+  marketIndex?: number,
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="amount" type="BN" required>
+  Amount to deposit in base units
+</ParamField>
+
+<ParamField path="marketIndex" type="number" default="1">
+  Spot market index
+</ParamField>
+
+<ParamField path="subAccountId" type="number" default="0">
+  Sub-account ID
+</ParamField>
+
+#### withdraw
+
+Withdraws assets from Drift.
+
+```typescript
+await client.drift.withdraw(
+  amount: BN,
+  marketIndex?: number,
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+### Trading
+
+#### placeOrder
+
+Places a perp or spot order.
+
+```typescript
+await client.drift.placeOrder(
+  orderParams: OrderParams,
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="orderParams" type="OrderParams" required>
+  Order parameters
+  
+  <Expandable title="properties">
+    <ParamField path="marketType" type="MarketType" required>
+      Market type: `MarketType.PERP` or `MarketType.SPOT`
+    </ParamField>
+    <ParamField path="marketIndex" type="number" required>
+      Market index
+    </ParamField>
+    <ParamField path="direction" type="PositionDirection" required>
+      Order direction: `PositionDirection.LONG` or `PositionDirection.SHORT`
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+#### modifyOrder
+
+Modifies an existing order.
+
+```typescript
+await client.drift.modifyOrder(
+  modifyOrderParams: ModifyOrderParams,
+  orderId: number,
+  marketIndex: number,
+  marketType: MarketType,
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### cancelOrders
+
+Cancels orders by market and direction.
+
+```typescript
+await client.drift.cancelOrders(
+  marketType: MarketType,
+  marketIndex: number,
+  direction: PositionDirection,
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### cancelOrdersByIds
+
+Cancels orders by their IDs.
+
+```typescript
+await client.drift.cancelOrdersByIds(
+  orderIds: number[],
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### settlePnl
+
+Settles PnL for a perp position.
+
+```typescript
+await client.drift.settlePnl(
+  marketIndex: number,
+  subAccountId?: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+### Data fetching
+
+#### fetchMarketConfigs
+
+Fetches all Drift market configurations.
+
+```typescript
+await client.drift.fetchMarketConfigs(
+  skipCache?: boolean
+): Promise<DriftMarketConfigs>
+```
+
+#### fetchAndParseDriftUser
+
+Fetches a Drift user account.
+
+```typescript
+await client.drift.fetchAndParseDriftUser(
+  subAccountId?: number
+): Promise<DriftUser | null>
+```
+
+## DriftVaultsClient
+
+Client for Drift Vaults operations.
+
+### Constructor
+
+```typescript
+new DriftVaultsClient(
+  base: BaseClient,
+  drift: DriftProtocolClient
+)
+```
+
+### Methods
+
+#### initializeVaultDepositor
+
+Initializes a vault depositor account.
+
+```typescript
+await client.driftVaults.initializeVaultDepositor(
+  driftVault: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### deposit
+
+Deposits to a Drift vault.
+
+```typescript
+await client.driftVaults.deposit(
+  driftVault: PublicKey,
+  amount: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="driftVault" type="PublicKey" required>
+  Drift vault address
+</ParamField>
+
+<ParamField path="amount" type="BN" required>
+  Amount to deposit in base units
+</ParamField>
+
+#### requestWithdraw
+
+Requests a withdrawal from a Drift vault.
+
+```typescript
+await client.driftVaults.requestWithdraw(
+  driftVault: PublicKey,
+  amount: BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### cancelWithdrawRequest
+
+Cancels a pending withdrawal request.
+
+```typescript
+await client.driftVaults.cancelWithdrawRequest(
+  driftVault: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### withdraw
+
+Completes a withdrawal from a Drift vault.
+
+```typescript
+await client.driftVaults.withdraw(
+  driftVault: PublicKey,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+#### findAndParseVaultDepositors
+
+Finds all vault depositor accounts for the fund.
+
+```typescript
+await client.driftVaults.findAndParseVaultDepositors(
+  commitment?: Commitment
+): Promise<VaultDepositor[]>
+```
+
+## Example
+
+```typescript
+import { BN } from '@coral-xyz/anchor';
+import { PublicKey } from '@solana/web3.js';
+import { GlamClient } from '@glam/anchor';
+
+const client = new GlamClient();
+
+// Initialize Drift account
+await client.drift.initialize(0);
+
+// Deposit USDC to Drift
+await client.drift.deposit(
+  new BN(100_000_000), // 100 USDC
+  1 // USDC market index
+);
+
+// Set leverage to 5x
+await client.drift.updateUserCustomMarginRatio(5);
+
+// Deposit to Drift vault
+const driftVault = new PublicKey('...');
+await client.driftVaults.deposit(
+  driftVault,
+  new BN(1_000_000_000)
+);
+```

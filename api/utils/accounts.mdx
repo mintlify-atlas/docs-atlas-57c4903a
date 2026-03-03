@@ -1,0 +1,233 @@
+---
+title: Account utilities
+description: Functions for fetching and parsing Solana accounts
+---
+
+## Token accounts
+
+### getTokenAccountsByOwner
+
+Fetches all token accounts (both Token Program and Token-2022) owned by a pubkey.
+
+```typescript
+async function getTokenAccountsByOwner(
+  connection: Connection,
+  owner: PublicKey,
+): Promise<TokenAccount[]>
+```
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ParamField path="owner" type="PublicKey" required>
+  Owner public key
+</ParamField>
+
+<ResponseField name="return" type="TokenAccount[]">
+  Array of token accounts with mint, amount, decimals, and program info
+</ResponseField>
+
+### getSolAndTokenBalances
+
+Fetches SOL balance and all token accounts for a pubkey.
+
+```typescript
+async function getSolAndTokenBalances(
+  connection: Connection,
+  owner: PublicKey,
+): Promise<{
+  balanceLamports: number;
+  uiAmount: number;
+  tokenAccounts: TokenAccount[];
+}>
+```
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ParamField path="owner" type="PublicKey" required>
+  Owner public key
+</ParamField>
+
+<ResponseField name="balanceLamports" type="number">
+  SOL balance in lamports
+</ResponseField>
+
+<ResponseField name="uiAmount" type="number">
+  SOL balance in SOL (with decimals)
+</ResponseField>
+
+<ResponseField name="tokenAccounts" type="TokenAccount[]">
+  Array of token accounts
+</ResponseField>
+
+---
+
+## Stake accounts
+
+### findStakeAccounts
+
+Finds all stake accounts with a specific withdraw authority.
+
+```typescript
+async function findStakeAccounts(
+  connection: Connection,
+  withdrawAuthority: PublicKey,
+): Promise<PublicKey[]>
+```
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ParamField path="withdrawAuthority" type="PublicKey" required>
+  Withdraw authority to search for
+</ParamField>
+
+<ResponseField name="return" type="PublicKey[]">
+  Array of stake account pubkeys, sorted by lamports descending
+</ResponseField>
+
+### getStakeAccountsWithStates
+
+Fetches stake accounts with their current state information.
+
+```typescript
+async function getStakeAccountsWithStates(
+  connection: Connection,
+  withdrawAuthority: PublicKey,
+): Promise<StakeAccountInfo[]>
+```
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ParamField path="withdrawAuthority" type="PublicKey" required>
+  Withdraw authority to search for
+</ParamField>
+
+<ResponseField name="return" type="StakeAccountInfo[]">
+  Array of stake accounts with state info
+</ResponseField>
+
+#### StakeAccountInfo
+
+<ResponseField name="address" type="PublicKey">
+  Stake account address
+</ResponseField>
+
+<ResponseField name="lamports" type="number">
+  Stake account balance
+</ResponseField>
+
+<ResponseField name="state" type="string">
+  Stake state: "undelegated", "activating", "active", "deactivating", or "inactive"
+</ResponseField>
+
+<ResponseField name="voter" type="PublicKey | undefined">
+  Validator vote account (undefined if not delegated)
+</ResponseField>
+
+---
+
+## Mint accounts
+
+### parseMintAccountInfo
+
+Parses a mint account buffer to extract mint data and token program.
+
+```typescript
+function parseMintAccountInfo(
+  accountInfo: AccountInfo<Buffer>,
+  pubkey: PublicKey,
+): { mint: Mint; tokenProgram: PublicKey }
+```
+
+<ParamField path="accountInfo" type="AccountInfo<Buffer>" required>
+  Account info buffer from getAccountInfo
+</ParamField>
+
+<ParamField path="pubkey" type="PublicKey" required>
+  Mint public key
+</ParamField>
+
+<ResponseField name="mint" type="Mint">
+  Parsed mint account
+</ResponseField>
+
+<ResponseField name="tokenProgram" type="PublicKey">
+  Token program ID (TOKEN_PROGRAM_ID or TOKEN_2022_PROGRAM_ID)
+</ResponseField>
+
+### fetchMintAndTokenProgram
+
+Fetches a single mint account and determines its token program.
+
+```typescript
+async function fetchMintAndTokenProgram(
+  connection: Connection,
+  mintPubkey: PublicKey,
+): Promise<{ mint: Mint; tokenProgram: PublicKey }>
+```
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ParamField path="mintPubkey" type="PublicKey" required>
+  Mint public key
+</ParamField>
+
+### fetchMintsAndTokenPrograms
+
+Fetches multiple mint accounts in a single RPC call.
+
+```typescript
+async function fetchMintsAndTokenPrograms(
+  connection: Connection,
+  mintPubkeys: PublicKey[],
+): Promise<{ mint: Mint; tokenProgram: PublicKey }[]>
+```
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ParamField path="mintPubkeys" type="PublicKey[]" required>
+  Array of mint public keys
+</ParamField>
+
+---
+
+## Lookup tables
+
+### findGlamLookupTables
+
+Finds all Address Lookup Tables (ALTs) associated with a vault.
+
+```typescript
+async function findGlamLookupTables(
+  statePda: PublicKey,
+  vaultPda: PublicKey,
+  connection: Connection,
+): Promise<AddressLookupTableAccount[]>
+```
+
+<ParamField path="statePda" type="PublicKey" required>
+  Vault state PDA
+</ParamField>
+
+<ParamField path="vaultPda" type="PublicKey" required>
+  Vault PDA
+</ParamField>
+
+<ParamField path="connection" type="Connection" required>
+  Solana connection instance
+</ParamField>
+
+<ResponseField name="return" type="AddressLookupTableAccount[]">
+  Array of lookup table accounts for the vault
+</ResponseField>

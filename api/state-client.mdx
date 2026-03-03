@@ -1,0 +1,381 @@
+---
+title: StateClient
+description: Client for managing vault state including initialization and configuration updates
+---
+
+## Overview
+
+`StateClient` handles vault state management including creating new vaults, updating configurations, extending account size, and closing vaults.
+
+## Access
+
+```typescript
+const client = new GlamClient();
+client.state.initialize(...);
+```
+
+## Methods
+
+### initialize
+
+```typescript
+async initialize(
+  params: InitStateParams,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Creates a new GLAM vault state account.
+
+<ParamField path="params" type="InitStateParams" required>
+  <Expandable title="properties">
+    <ParamField path="accountType" type="StateAccountType" required>
+      Type of vault. Use `StateAccountType.TOKENIZED_VAULT` for investor vaults or `StateAccountType.VAULT` for simple vaults
+    </ParamField>
+    <ParamField path="name" type="number[]" required>
+      Vault name as array of character codes. Use `stringToChars()` helper
+    </ParamField>
+    <ParamField path="baseAssetMint" type="PublicKey" required>
+      Base asset mint for vault deposits (e.g., USDC, SOL)
+    </ParamField>
+    <ParamField path="owner" type="PublicKey" optional>
+      Vault owner. Defaults to signer
+    </ParamField>
+    <ParamField path="uri" type="string" optional>
+      Metadata URI. Defaults to GLAM GUI URL
+    </ParamField>
+    <ParamField path="portfolioManagerName" type="number[]" optional>
+      Portfolio manager name as character codes
+    </ParamField>
+    <ParamField path="timelockDuration" type="number" optional>
+      Timelock duration in seconds for state updates
+    </ParamField>
+    <ParamField path="assets" type="PublicKey[]" optional>
+      Allowed asset mints for trading
+    </ParamField>
+    <ParamField path="borrowable" type="PublicKey[]" optional>
+      Assets that can be borrowed
+    </ParamField>
+    <ParamField path="reduceOnly" type="boolean" optional>
+      Reduce-only mode prevents new positions
+    </ParamField>
+    <ParamField path="anyLst" type="boolean" optional>
+      Allow trading any liquid staking token
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+Returns the transaction signature. The vault's `statePda` is automatically set on the client after initialization.
+
+```typescript
+import { StateAccountType } from "@glam/sdk";
+import { stringToChars } from "@glam/sdk/utils";
+
+const USDC = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const SOL = new PublicKey("So11111111111111111111111111111111111111112");
+
+// Create a tokenized vault
+await client.state.initialize({
+  accountType: StateAccountType.TOKENIZED_VAULT,
+  name: stringToChars("My Investment Fund"),
+  baseAssetMint: USDC,
+  portfolioManagerName: stringToChars("Acme Capital"),
+  assets: [USDC, SOL],
+  timelockDuration: 86400, // 1 day
+});
+
+// The statePda is now set on the client
+console.log("Vault created:", client.statePda.toBase58());
+```
+
+<Note>
+The state PDA is deterministically derived from:
+- Hash of the vault name
+- Owner public key
+- Protocol program ID
+
+This allows you to recompute the state PDA later using the same name and owner.
+</Note>
+
+### update
+
+```typescript
+async update(
+  params: UpdateStateParams,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Updates vault state configuration. Only the fields provided in `params` will be updated; omitted fields remain unchanged.
+
+<ParamField path="params" type="UpdateStateParams" required>
+  <Expandable title="properties">
+    <ParamField path="name" type="number[]" optional>
+      New vault name
+    </ParamField>
+    <ParamField path="owner" type="PublicKey" optional>
+      Transfer ownership to new address
+    </ParamField>
+    <ParamField path="portfolioManagerName" type="number[]" optional>
+      Update portfolio manager name
+    </ParamField>
+    <ParamField path="timelockDuration" type="number" optional>
+      Update timelock duration in seconds
+    </ParamField>
+    <ParamField path="assets" type="PublicKey[]" optional>
+      Update allowed trading assets
+    </ParamField>
+    <ParamField path="borrowable" type="PublicKey[]" optional>
+      Update borrowable assets
+    </ParamField>
+    <ParamField path="reduceOnly" type="boolean" optional>
+      Enable/disable reduce-only mode
+    </ParamField>
+    <ParamField path="anyLst" type="boolean" optional>
+      Enable/disable any LST trading
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Enable reduce-only mode
+await client.state.update({
+  reduceOnly: true,
+});
+
+// Add new assets to allowlist
+await client.state.update({
+  assets: [USDC, SOL, BONK, WIF],
+});
+
+// Transfer ownership
+await client.state.update({
+  owner: newOwnerPubkey,
+});
+```
+
+<Note>
+If timelock is enabled on the vault:
+- Updates are staged and not applied immediately
+- Updates can be applied after the timelock period expires
+- Use `TimelockClient` to manage pending updates
+
+If no timelock is configured, updates are applied immediately.
+</Note>
+
+### extend
+
+```typescript
+async extend(
+  newBytes: number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Extends the state account size to accommodate more data.
+
+<ParamField path="newBytes" type="number" required>
+  Number of additional bytes to allocate
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Extend state account by 1000 bytes
+await client.state.extend(1000);
+```
+
+<Note>
+This is needed when adding many assets, delegates, or integration ACLs that exceed the current account size. The payer will be charged rent for the additional space.
+</Note>
+
+### close
+
+```typescript
+async close(txOptions?: TxOptions): Promise<TransactionSignature>
+```
+
+Closes the vault state account and recovers rent.
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Close the vault
+await client.state.close();
+```
+
+<Note>
+Only the vault owner can close the state account. The vault must be empty (no assets, no shares outstanding) before it can be closed.
+</Note>
+
+## Transaction builder
+
+For advanced use cases, access the transaction builder directly:
+
+```typescript
+client.state.txBuilder: TxBuilder
+```
+
+The builder provides methods that return instructions or transactions without sending:
+
+### initializeIx
+
+```typescript
+async initializeIx(
+  params: InitStateParams,
+  glamSigner: PublicKey
+): Promise<[TransactionInstruction, PublicKey]>
+```
+
+Returns the initialization instruction and computed state PDA.
+
+```typescript
+const [ix, statePda] = await client.state.txBuilder.initializeIx(
+  {
+    accountType: StateAccountType.TOKENIZED_VAULT,
+    name: stringToChars("My Fund"),
+    baseAssetMint: USDC,
+  },
+  client.signer
+);
+
+console.log("State PDA will be:", statePda.toBase58());
+```
+
+### initializeTx
+
+```typescript
+async initializeTx(
+  params: InitStateParams,
+  txOptions: TxOptions
+): Promise<[VersionedTransaction, PublicKey]>
+```
+
+Returns the initialization transaction and computed state PDA.
+
+### updateIx
+
+```typescript
+async updateIx(
+  params: UpdateStateParams,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction>
+```
+
+Returns the update instruction.
+
+### updateTx
+
+```typescript
+async updateTx(
+  params: UpdateStateParams,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns the update transaction.
+
+### extendIx
+
+```typescript
+async extendIx(
+  newBytes: number,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction>
+```
+
+Returns the extend instruction.
+
+### extendTx
+
+```typescript
+async extendTx(
+  newBytes: number,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns the extend transaction.
+
+### closeIx
+
+```typescript
+async closeIx(glamSigner: PublicKey): Promise<TransactionInstruction>
+```
+
+Returns the close instruction.
+
+### closeTx
+
+```typescript
+async closeTx(txOptions: TxOptions): Promise<VersionedTransaction>
+```
+
+Returns the close transaction.
+
+## Types
+
+### StateAccountType
+
+```typescript
+class StateAccountType {
+  static readonly VAULT = { vault: {} };
+  static readonly TOKENIZED_VAULT = { tokenizedVault: {} };
+  static readonly MINT = { mint: {} };
+  static readonly SINGLE_ASSET_VAULT = { singleAssetVault: {} };
+}
+```
+
+## Example usage
+
+```typescript
+import { GlamClient, StateAccountType } from "@glam/sdk";
+import { stringToChars } from "@glam/sdk/utils";
+import { PublicKey } from "@solana/web3.js";
+
+const client = new GlamClient();
+
+// Create a new vault
+await client.state.initialize({
+  accountType: StateAccountType.TOKENIZED_VAULT,
+  name: stringToChars("DeFi Strategy Fund"),
+  baseAssetMint: new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  portfolioManagerName: stringToChars("Solana Capital"),
+  assets: [
+    new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+    new PublicKey("So11111111111111111111111111111111111111112"),  // SOL
+  ],
+  timelockDuration: 86400, // 1 day timelock for updates
+});
+
+console.log("Vault created:", client.statePda.toBase58());
+
+// Fetch vault state
+const state = await client.fetchStateModel();
+console.log("Vault name:", state.nameStr);
+console.log("Owner:", state.owner.toBase58());
+console.log("Assets:", state.assets);
+
+// Update configuration
+await client.state.update({
+  reduceOnly: false,
+});
+```
+
+## Related
+
+- [BaseClient](/api/base-client) - Fetching state models
+- [Creating vaults](/guides/creating-vaults) - Vault creation guide
+- [Access control](/guides/access-control) - Vault access management

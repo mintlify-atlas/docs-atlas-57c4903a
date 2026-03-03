@@ -1,0 +1,220 @@
+---
+title: Basic usage
+description: Learn the fundamentals of using the GLAM SDK with practical examples
+---
+
+This guide covers the essential operations for working with the GLAM SDK, from initializing the client to performing basic vault operations.
+
+## Initialize the client
+
+The `GlamClient` is your primary interface to the GLAM Protocol. You can initialize it with environment variables or custom configuration.
+
+### Using environment variables
+
+```typescript
+import { GlamClient } from "@glamsystems/glam-sdk";
+import * as dotenv from "dotenv";
+
+// Load environment variables from .env file
+dotenv.config();
+
+// By default GlamClient will use the wallet and RPC from the env variables
+const glamClient = new GlamClient();
+```
+
+<Note>
+Make sure your `.env` file contains the required variables:
+- `SOLANA_RPC_URL` - Your Solana RPC endpoint
+- `WALLET_PRIVATE_KEY` - Your wallet's private key
+</Note>
+
+### Using custom configuration
+
+```typescript
+import { GlamClient } from "@glamsystems/glam-sdk";
+import { Wallet } from "@coral-xyz/anchor";
+import { Keypair, PublicKey } from "@solana/web3.js";
+
+const wallet = new Wallet(Keypair.generate());
+const glamClient = new GlamClient({
+  wallet,
+  statePda: new PublicKey("your-vault-state-address"),
+  jupiterApiKey: "your-jupiter-api-key"
+});
+```
+
+## Create a vault
+
+Create a new GLAM vault with custom parameters. The vault is the core account that holds assets and manages operations.
+
+```typescript
+import {
+  GlamClient,
+  stringToChars,
+  StateAccountType,
+  WSOL,
+} from "@glamsystems/glam-sdk";
+import { PublicKey } from "@solana/web3.js";
+
+const glamClient = new GlamClient();
+
+const txOptions = {
+  maxFeeLamports: 10_000,
+  useMaxFee: true,
+  simulate: true,
+};
+
+// Initialize the vault
+const txSig = await glamClient.state.initialize(
+  {
+    name: stringToChars("My Vault"),
+    enabled: true,
+    accountType: StateAccountType.VAULT,
+    baseAssetMint: WSOL, // Use wrapped SOL as base asset
+  },
+  txOptions,
+);
+
+console.log("✅ Vault created:", txSig);
+console.log("Vault address:", glamClient.vaultPda.toBase58());
+console.log("Vault state:", glamClient.statePda.toBase58());
+```
+
+<Info>
+The vault name is converted to a character array using `stringToChars()`. The `enabled` flag determines whether the vault can immediately accept deposits.
+</Info>
+
+## Working with an existing vault
+
+To interact with an existing vault, you need to get its state PDA and initialize the client with it.
+
+```typescript
+import { GlamClient } from "@glamsystems/glam-sdk";
+import { Connection, PublicKey } from "@solana/web3.js";
+
+async function getVaultStatePubkey(
+  connection: Connection,
+  vault: PublicKey,
+  glamProtocolProgramId: PublicKey,
+) {
+  const vaultState = await connection.getProgramAccounts(
+    glamProtocolProgramId,
+    {
+      filters: [{ memcmp: { offset: 10, bytes: vault.toBase58() } }],
+    },
+  );
+  if (vaultState.length === 0) {
+    throw new Error("Vault not found");
+  }
+  return vaultState[0].pubkey;
+}
+
+async function createGlamClient(vault: PublicKey) {
+  const glamClient = new GlamClient();
+  const vaultState = await getVaultStatePubkey(
+    glamClient.provider.connection,
+    vault,
+    glamClient.protocolProgram.programId,
+  );
+  glamClient.statePda = vaultState;
+  return glamClient;
+}
+
+// Use the client
+const vaultAddress = new PublicKey("your-vault-address");
+const glamClient = await createGlamClient(vaultAddress);
+```
+
+## Deposit SOL
+
+Deposit SOL into a vault using the `depositSol` method.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+const amount = 1.5; // SOL amount
+const amountBN = new BN(amount * LAMPORTS_PER_SOL);
+
+const txSig = await glamClient.vault.depositSol(
+  amountBN,
+  true, // skipBalanceCheck
+  txOptions
+);
+
+console.log("✅ Deposit SOL successful:", txSig);
+```
+
+## Deposit tokens
+
+Deposit SPL tokens into a vault. The SDK automatically handles decimal conversion.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { fetchMintAndTokenProgram } from "@glamsystems/glam-sdk";
+
+const tokenMint = new PublicKey("token-mint-address");
+const amount = 100; // Token amount
+
+// Fetch mint info to get decimals
+const { mint } = await fetchMintAndTokenProgram(
+  glamClient.provider.connection,
+  tokenMint,
+);
+const amountBN = new BN(amount * 10 ** mint.decimals);
+
+const txSig = await glamClient.vault.deposit(
+  tokenMint,
+  amountBN,
+  txOptions,
+);
+
+console.log("✅ Deposit token successful:", txSig);
+```
+
+## Transfer tokens
+
+Transfer tokens from a vault to another wallet.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { fetchMintAndTokenProgram } from "@glamsystems/glam-sdk";
+
+const destWallet = new PublicKey("destination-wallet-address");
+const tokenMint = new PublicKey("token-mint-address");
+const amount = 50;
+
+const { mint } = await fetchMintAndTokenProgram(
+  glamClient.provider.connection,
+  tokenMint,
+);
+const amountBN = new BN(amount * 10 ** mint.decimals);
+
+const txSig = await glamClient.vault.tokenTransfer(
+  tokenMint,
+  amountBN,
+  destWallet,
+  txOptions,
+);
+
+console.log("✅ Transfer token successful:", txSig);
+```
+
+## Transaction options
+
+You can customize transaction behavior using the `txOptions` parameter available on most methods.
+
+```typescript
+const txOptions = {
+  maxFeeLamports: 10_000,    // Maximum fee in lamports
+  useMaxFee: true,            // Use maximum fee
+  simulate: true,             // Simulate before sending
+  signer: customSigner,       // Custom signer (optional)
+};
+```
+
+<Note>
+Setting `simulate: true` will run a simulation before submitting the transaction, helping you catch errors early.
+</Note>

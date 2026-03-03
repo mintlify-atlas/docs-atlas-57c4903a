@@ -1,0 +1,146 @@
+---
+title: Common types
+description: Common types and enums used across the SDK
+---
+
+## Enums
+
+### PriceDenom
+
+Price denomination for asset pricing.
+
+<ResponseField name="SOL" type="{ sol: {} }">
+  Price in SOL
+</ResponseField>
+
+<ResponseField name="USD" type="{ usd: {} }">
+  Price in USD
+</ResponseField>
+
+### TimeUnit
+
+Time unit for duration measurements.
+
+<ResponseField name="Slot" type="{ slot: {} }">
+  Measured in Solana slots
+</ResponseField>
+
+<ResponseField name="Second" type="{ second: {} }">
+  Measured in seconds
+</ResponseField>
+
+### VoteAuthorize
+
+Stake account authorization type.
+
+<ResponseField name="Voter" type="{ voter: {} }">
+  Voter authority
+</ResponseField>
+
+<ResponseField name="Withdrawer" type="{ withdrawer: {} }">
+  Withdrawer authority
+</ResponseField>
+
+---
+
+## Request queue types
+
+### RequestQueue
+
+Queue of pending subscription/redemption requests.
+
+<ResponseField name="data" type="PendingRequest[]" required>
+  Array of pending requests
+</ResponseField>
+
+<ResponseField name="subscriptionPaused" type="boolean" required>
+  Whether subscriptions are paused
+</ResponseField>
+
+<ResponseField name="redemptionPaused" type="boolean" required>
+  Whether redemptions are paused
+</ResponseField>
+
+### PendingRequest
+
+A single pending subscription or redemption request.
+
+<ResponseField name="investor" type="PublicKey" required>
+  Investor public key
+</ResponseField>
+
+<ResponseField name="amount" type="BN" required>
+  Request amount
+</ResponseField>
+
+<ResponseField name="requestType" type="number" required>
+  Request type (0 = subscription, 1 = redemption)
+</ResponseField>
+
+<ResponseField name="timestamp" type="BN" required>
+  Request timestamp
+</ResponseField>
+
+---
+
+## Fee types
+
+### FeeStructure
+
+Fee configuration structure.
+
+<ResponseField name="managementFee" type="number" required>
+  Annual management fee in basis points
+</ResponseField>
+
+<ResponseField name="performanceFee" type="number" required>
+  Performance fee in basis points
+</ResponseField>
+
+<ResponseField name="subscriptionFee" type="number" required>
+  Subscription fee in basis points
+</ResponseField>
+
+<ResponseField name="redemptionFee" type="number" required>
+  Redemption fee in basis points
+</ResponseField>
+
+### FeeParams
+
+Fee calculation parameters.
+
+<ResponseField name="lastUpdated" type="BN" required>
+  Last fee update timestamp
+</ResponseField>
+
+<ResponseField name="totalShares" type="BN" required>
+  Total shares at last update
+</ResponseField>
+
+<ResponseField name="nav" type="BN" required>
+  Net asset value at last update
+</ResponseField>
+
+### AccruedFees
+
+Accrued fee amounts.
+
+<ResponseField name="managementFees" type="BN" required>
+  Accrued management fees
+</ResponseField>
+
+<ResponseField name="performanceFees" type="BN" required>
+  Accrued performance fees
+</ResponseField>
+
+### NotifyAndSettle
+
+Notification and settlement configuration.
+
+<ResponseField name="enabled" type="boolean" required>
+  Whether notify and settle is enabled
+</ResponseField>
+
+<ResponseField name="settlementPeriod" type="number" required>
+  Settlement period in seconds
+</ResponseField>

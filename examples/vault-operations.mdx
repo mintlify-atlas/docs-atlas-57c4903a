@@ -1,0 +1,274 @@
+---
+title: Vault operations
+description: Complete examples for managing vault permissions, access control, and protocol integrations
+---
+
+This guide covers advanced vault operations including access control, protocol permissions, and working with allowlists.
+
+## Enable protocol integrations
+
+Before using DeFi protocols, you need to enable them for your vault. Each protocol has a unique bitmask identifier.
+
+```typescript
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const glamClient = new GlamClient();
+
+const txOptions = {
+  maxFeeLamports: 10_000,
+  useMaxFee: true,
+  simulate: true,
+};
+
+// Enable native integrations (Jupiter Swap + System Program)
+const txSig = await glamClient.access.enableProtocols(
+  glamClient.protocolProgram.programId,
+  0b0000101, // Binary bitmask for protocols
+  txOptions,
+);
+
+console.log("✅ Enable integration successful:", txSig);
+```
+
+### Protocol bitmask values
+
+```typescript
+// Common protocol combinations
+const SYSTEM_PROGRAM = 0b0000001;
+const STAKE_PROGRAM = 0b0000010;
+const JUPITER_SWAP = 0b0000100;
+
+// Enable multiple protocols
+const protocols = SYSTEM_PROGRAM | JUPITER_SWAP; // 0b0000101
+```
+
+## Enable integration by program ID
+
+You can also enable integrations by specifying the program ID and protocol numbers.
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+
+const integrationProgram = new PublicKey("integration-program-id");
+const protocols = ["1", "4"]; // Protocol numbers as strings
+
+const protocolNumbers = protocols.map((p) => parseInt(p));
+const protocolBitmask = protocolNumbers.reduce((a, b) => a | b, 0);
+
+const txSig = await glamClient.access.enableProtocols(
+  integrationProgram,
+  protocolBitmask,
+  txOptions,
+);
+
+console.log("✅ Enable integration successful:", txSig);
+```
+
+## Set protocol policies
+
+Protocol policies allow you to set fine-grained rules for protocol usage, such as slippage limits or asset allowlists.
+
+### Jupiter swap policy
+
+```typescript
+import { JupiterSwapPolicy, USDC, MSOL } from "@glamsystems/glam-sdk";
+
+// Set max slippage to 50 bps (0.5%) and allowlist specific assets
+const policy = new JupiterSwapPolicy(
+  50,           // maxSlippageBps
+  [USDC, MSOL]  // allowedAssets
+);
+
+const txSig = await glamClient.access.setProtocolPolicy(
+  glamClient.protocolProgram.programId,
+  0b0000100, // Jupiter Swap
+  policy.encode(),
+  txOptions,
+);
+
+console.log("✅ Update jupiter swap policy:", txSig);
+```
+
+### Transfer policy with allowlist
+
+```typescript
+import { TransferPolicy, PublicKey } from "@glamsystems/glam-sdk";
+
+const destAddress = new PublicKey("destination-address");
+
+// Fetch existing policy or create new one
+const policy =
+  (await glamClient.fetchProtocolPolicy(
+    glamClient.extSplProgram.programId,
+    0b01,
+    TransferPolicy,
+  )) ?? new TransferPolicy([]);
+
+// Check if address is already in allowlist
+if (policy.allowlist.find((p) => p.equals(destAddress))) {
+  console.error(`Destination address ${destAddress} is already in the allowlist.`);
+} else {
+  // Add to allowlist
+  policy.allowlist.push(destAddress);
+
+  const txSig = await glamClient.access.setProtocolPolicy(
+    glamClient.extSplProgram.programId,
+    0b01,
+    policy.encode(),
+    txOptions,
+  );
+  console.log(`✅ Added ${destAddress} to allowlist:`, txSig);
+}
+```
+
+## Grant delegate permissions
+
+Delegates can perform specific operations on behalf of the vault. You control their permissions through ACLs.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+import { Keypair } from "@solana/web3.js";
+
+const delegate = Keypair.generate();
+
+// Grant permission to swap allowlisted assets only
+const txSig = await glamClient.access.grantDelegatePermissions(
+  delegate.publicKey,
+  glamClient.protocolProgram.programId,
+  0b100,              // Jupiter Swap protocol
+  new BN(0b100),      // SWAP_ALLOWLISTED permission
+);
+
+console.log("✅ Grant delegate permissions:", txSig);
+```
+
+### Delegate permission flags
+
+```typescript
+// System permissions
+const WSOL_PERMISSION = new BN(0b01);
+
+// Jupiter Swap permissions
+const SWAP_ALLOWLISTED = new BN(0b100); // Can swap allowlisted assets
+const SWAP_LST = new BN(0b010);         // Can swap liquid staking tokens
+const SWAP_ANY = new BN(0b001);         // Can swap any assets
+
+// Combine permissions
+const permissions = new BN(0b110); // SWAP_ALLOWLISTED + SWAP_LST
+```
+
+## Using a vault as a delegate
+
+Once permissions are granted, delegates can perform authorized operations.
+
+```typescript
+import { Wallet } from "@coral-xyz/anchor";
+import { GlamClient } from "@glamsystems/glam-sdk";
+
+const delegateWallet = new Wallet(delegate);
+const glamClientDelegate = new GlamClient({
+  wallet: delegateWallet,
+  statePda: glamClient.statePda,
+});
+
+// Delegate can now perform swaps within their permissions
+const txSig = await glamClientDelegate.jupiterSwap.swap({
+  quoteParams: {
+    inputMint: WSOL.toBase58(),
+    outputMint: MSOL.toBase58(),
+    amount: 50_000_000,
+    swapMode: "ExactIn",
+  },
+});
+
+console.log("✅ Delegate swap successful:", txSig);
+```
+
+## Verify vault state
+
+After making changes, you can verify the vault state and check the configured ACLs.
+
+```typescript
+// Fetch the full state model
+const stateModel = await glamClient.fetchStateModel();
+
+console.log("Assets:", stateModel.assets);
+console.log("Base asset:", stateModel.baseAssetMint);
+console.log("Integration ACLs:", stateModel.integrationAcls);
+console.log("Delegate ACLs:", stateModel.delegateAcls);
+
+// Fetch just the state account
+const stateAccount = await glamClient.fetchStateAccount();
+console.log("Vault enabled:", stateAccount.enabled);
+console.log("Total assets:", stateAccount.assets.length);
+```
+
+## Complete vault setup example
+
+Here's a complete example that creates a vault and sets up permissions for Jupiter swaps.
+
+```typescript
+import {
+  GlamClient,
+  stringToChars,
+  StateAccountType,
+  WSOL,
+  USDC,
+  MSOL,
+  JupiterSwapPolicy,
+} from "@glamsystems/glam-sdk";
+import { BN } from "@coral-xyz/anchor";
+import { Keypair } from "@solana/web3.js";
+
+const glamClient = new GlamClient();
+const txOptions = { maxFeeLamports: 10_000, useMaxFee: true, simulate: true };
+
+// 1. Create vault
+const txSig1 = await glamClient.state.initialize(
+  {
+    name: stringToChars("My Trading Vault"),
+    enabled: true,
+    accountType: StateAccountType.VAULT,
+    baseAssetMint: WSOL,
+  },
+  txOptions,
+);
+console.log("✅ Vault created:", txSig1);
+
+// 2. Enable Jupiter Swap and System Program
+const txSig2 = await glamClient.access.enableProtocols(
+  glamClient.protocolProgram.programId,
+  0b0000101,
+  txOptions,
+);
+console.log("✅ Protocols enabled:", txSig2);
+
+// 3. Set Jupiter swap policy
+const policy = new JupiterSwapPolicy(50, [USDC, MSOL]);
+const txSig3 = await glamClient.access.setProtocolPolicy(
+  glamClient.protocolProgram.programId,
+  0b0000100,
+  policy.encode(),
+  txOptions,
+);
+console.log("✅ Swap policy set:", txSig3);
+
+// 4. Grant delegate permissions
+const delegate = Keypair.generate();
+const txSig4 = await glamClient.access.grantDelegatePermissions(
+  delegate.publicKey,
+  glamClient.protocolProgram.programId,
+  0b100,
+  new BN(0b110), // SWAP_ALLOWLISTED + SWAP_LST
+);
+console.log("✅ Delegate permissions granted:", txSig4);
+
+// 5. Verify configuration
+const stateModel = await glamClient.fetchStateModel();
+console.log("Vault configured:", {
+  vault: glamClient.vaultPda.toBase58(),
+  state: glamClient.statePda.toBase58(),
+  integrations: stateModel.integrationAcls?.length,
+  delegates: stateModel.delegateAcls?.length,
+});
+```

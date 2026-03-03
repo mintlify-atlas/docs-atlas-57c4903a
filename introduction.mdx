@@ -1,0 +1,97 @@
+---
+title: Introduction
+description: A TypeScript SDK for building applications on the GLAM Protocol
+---
+
+# Welcome to GLAM SDK
+
+The GLAM SDK is a comprehensive TypeScript library for interacting with the GLAM Protocol on Solana. Build powerful applications for asset management, vault operations, DeFi integrations, and more.
+
+## What is GLAM?
+
+GLAM (Global Liquidity and Asset Management) is a protocol on Solana that enables you to create and manage on-chain vaults with advanced features like:
+
+- Asset management with SOL and SPL tokens
+- DeFi protocol integrations (Jupiter, Drift, Kamino, Marinade)
+- Access control and transfer policies
+- Staking and liquid staking
+- Cross-chain transfers via CCTP
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Easy to use" icon="rocket">
+    Simple, intuitive API that gets you started in minutes with TypeScript support
+  </Card>
+  
+  <Card title="Modular architecture" icon="cubes">
+    Lazy-loaded clients for vault, DeFi protocols, pricing, and more
+  </Card>
+  
+  <Card title="Full protocol coverage" icon="grid">
+    Complete access to all GLAM Protocol features including integrations with Jupiter, Drift, Kamino, and Marinade
+  </Card>
+  
+  <Card title="Production ready" icon="shield-check">
+    Battle-tested SDK powering the GLAM CLI and other production applications
+  </Card>
+</CardGroup>
+
+## Quick links
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get started by installing the SDK
+  </Card>
+  
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Build your first GLAM application
+  </Card>
+  
+  <Card title="GitHub" icon="github" href="https://github.com/glamsystems/glam-sdk">
+    View the source code
+  </Card>
+  
+  <Card title="GLAM Protocol" icon="globe" href="https://www.glam.systems">
+    Learn more about GLAM
+  </Card>
+</CardGroup>
+
+## SDK architecture
+
+The SDK is built around the `GlamClient` class, which provides access to specialized clients for different protocol features:
+
+- **Vault operations** - Deposits, withdrawals, transfers
+- **State management** - Initialize and configure vaults
+- **DeFi integrations** - Jupiter swaps, Drift trading, Kamino lending, Marinade staking
+- **Access control** - Enable protocols and set policies
+- **Pricing** - Get asset prices across protocols
+- **Staking** - Native staking and stake pools
+- **CCTP** - Cross-chain transfers
+
+<Note>
+All clients are lazy-loaded, so you only import what you need.
+</Note>
+
+## Examples
+
+The SDK powers production applications including:
+
+- [GLAM CLI](https://github.com/glamsystems/glam-cli) - Command-line interface for GLAM vaults
+- Example applications in the [examples directory](https://github.com/glamsystems/glam-sdk/tree/main/examples)
+
+## Next steps
+
+<Steps>
+  <Step title="Install the SDK">
+    Follow the [installation guide](/installation) to add the SDK to your project
+  </Step>
+  
+  <Step title="Try the quickstart">
+    Create your first vault with our [quickstart guide](/quickstart)
+  </Step>
+  
+  <Step title="Explore the API">
+    Dive deeper into specific features and integrations
+  </Step>
+</Steps>

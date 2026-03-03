@@ -1,0 +1,467 @@
+---
+title: VaultClient
+description: Client for vault operations including deposits, withdrawals, and token transfers
+---
+
+## Overview
+
+`VaultClient` handles vault operations like depositing assets, transferring tokens, wrapping/unwrapping SOL, and managing token accounts.
+
+## Access
+
+```typescript
+const client = new GlamClient();
+client.vault.wrap(...);
+```
+
+## Methods
+
+### wrap
+
+```typescript
+async wrap(
+  amount: BN | number,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Wraps vault SOL into wSOL (wrapped SOL).
+
+<ParamField path="amount" type="BN | number" required>
+  Amount of SOL to wrap in lamports
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+// Wrap 0.1 SOL
+await client.vault.wrap(new BN(100_000_000));
+```
+
+### unwrap
+
+```typescript
+async unwrap(txOptions?: TxOptions): Promise<TransactionSignature>
+```
+
+Unwraps all vault wSOL back to SOL by closing the wSOL token account.
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Unwrap all wSOL in vault
+await client.vault.unwrap();
+```
+
+### systemTransfer
+
+```typescript
+async systemTransfer(
+  amount: BN | number,
+  to: PublicKey | string,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Transfers SOL from vault to another account.
+
+<ParamField path="amount" type="BN | number" required>
+  Amount of SOL to transfer in lamports
+</ParamField>
+
+<ParamField path="to" type="PublicKey | string" required>
+  Recipient public key
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Transfer 0.01 SOL to recipient
+await client.vault.systemTransfer(
+  new BN(10_000_000),
+  "recipient1111111111111111111111111111111111"
+);
+```
+
+### tokenTransfer
+
+```typescript
+async tokenTransfer(
+  mint: PublicKey | string,
+  amount: number | BN,
+  to: PublicKey | string,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Transfers tokens from vault to another account.
+
+<ParamField path="mint" type="PublicKey | string" required>
+  Token mint address
+</ParamField>
+
+<ParamField path="amount" type="number | BN" required>
+  Amount of tokens to transfer (in token's smallest unit)
+</ParamField>
+
+<ParamField path="to" type="PublicKey | string" required>
+  Recipient public key
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Transfer 100 USDC (6 decimals)
+const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+await client.vault.tokenTransfer(
+  USDC_MINT,
+  100_000_000, // 100 USDC
+  recipientPubkey
+);
+```
+
+<Note>
+This method automatically creates the recipient's associated token account if it doesn't exist.
+</Note>
+
+### closeTokenAccounts
+
+```typescript
+async closeTokenAccounts(
+  tokenAccounts: PublicKey[] | string[],
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Closes multiple vault token accounts and recovers rent.
+
+<ParamField path="tokenAccounts" type="PublicKey[] | string[]" required>
+  Array of token account addresses to close
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Close empty token accounts
+await client.vault.closeTokenAccounts([
+  "tokenAccount11111111111111111111111111111111",
+  "tokenAccount22222222222222222222222222222222"
+]);
+```
+
+<Note>
+Token accounts must have zero balance to be closed. This method handles both TOKEN_PROGRAM and TOKEN_2022_PROGRAM accounts.
+</Note>
+
+### deposit
+
+```typescript
+async deposit(
+  mint: PublicKey | string,
+  amount: number | BN,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Deposits tokens from signer to vault.
+
+<ParamField path="mint" type="PublicKey | string" required>
+  Token mint address
+</ParamField>
+
+<ParamField path="amount" type="number | BN" required>
+  Amount to deposit (in token's smallest unit)
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Deposit 50 USDC to vault
+await client.vault.deposit(USDC_MINT, 50_000_000);
+```
+
+### depositSol
+
+```typescript
+async depositSol(
+  lamports: number | BN,
+  wrap?: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+Deposits SOL from signer to vault.
+
+<ParamField path="lamports" type="number | BN" required>
+  Amount of SOL to deposit in lamports
+</ParamField>
+
+<ParamField path="wrap" type="boolean" default="true">
+  Whether to wrap SOL as wSOL or keep as native SOL
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions" optional>
+  Transaction options
+</ParamField>
+
+```typescript
+// Deposit 1 SOL as wSOL
+await client.vault.depositSol(1_000_000_000, true);
+
+// Deposit 1 SOL as native SOL
+await client.vault.depositSol(1_000_000_000, false);
+```
+
+### maybeWrapSol
+
+```typescript
+async maybeWrapSol(
+  lamports: number | BN,
+  signer?: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+Generates instructions to wrap SOL into wSOL if the vault doesn't have enough wSOL balance.
+
+<ParamField path="lamports" type="number | BN" required>
+  Desired amount of wSOL in lamports
+</ParamField>
+
+<ParamField path="signer" type="PublicKey" optional>
+  Signer public key. Defaults to `client.signer`
+</ParamField>
+
+Returns an array of instructions. Empty array if vault already has sufficient wSOL.
+
+```typescript
+// Get wrap instructions if needed for a swap
+const wrapIxs = await client.vault.maybeWrapSol(500_000_000);
+
+// Include in transaction
+const tx = new Transaction();
+tx.add(...wrapIxs);
+tx.add(...swapIxs);
+```
+
+<Note>
+This is useful when preparing transactions that require wSOL. The method:
+- Checks current vault wSOL balance
+- Checks vault SOL balance
+- Returns wrap instructions only if needed and vault has sufficient SOL
+- Throws error if vault has insufficient SOL
+</Note>
+
+## Transaction builder
+
+For advanced use cases, access the transaction builder directly:
+
+```typescript
+client.vault.txBuilder: TxBuilder
+```
+
+The builder provides methods that return instructions or transactions without sending:
+
+### wrapIxs
+
+```typescript
+async wrapIxs(
+  amount: BN,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+Returns instructions to wrap SOL.
+
+### wrapTx
+
+```typescript
+async wrapTx(
+  amount: BN,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to wrap SOL.
+
+### unwrapIx
+
+```typescript
+async unwrapIx(glamSigner: PublicKey): Promise<TransactionInstruction>
+```
+
+Returns instruction to unwrap wSOL.
+
+### unwrapTx
+
+```typescript
+async unwrapTx(txOptions: TxOptions): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to unwrap wSOL.
+
+### systemTransferIx
+
+```typescript
+async systemTransferIx(
+  amount: BN,
+  to: PublicKey,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction>
+```
+
+Returns instruction to transfer SOL.
+
+### systemTransferTx
+
+```typescript
+async systemTransferTx(
+  amount: BN,
+  to: PublicKey,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to transfer SOL.
+
+### tokenTransferIxs
+
+```typescript
+async tokenTransferIxs(
+  mint: PublicKey,
+  amount: number | BN,
+  to: PublicKey,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+Returns instructions to transfer tokens.
+
+### tokenTransferTx
+
+```typescript
+async tokenTransferTx(
+  mint: PublicKey,
+  amount: number | BN,
+  to: PublicKey,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to transfer tokens.
+
+### closeTokenAccountIx
+
+```typescript
+async closeTokenAccountIx(
+  tokenAccount: PublicKey,
+  tokenProgram: PublicKey,
+  signer?: PublicKey
+): Promise<TransactionInstruction>
+```
+
+Returns instruction to close a token account.
+
+### closeTokenAccountsTx
+
+```typescript
+async closeTokenAccountsTx(
+  pubkeys: PublicKey[],
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to close token accounts.
+
+### depositSolIxs
+
+```typescript
+async depositSolIxs(
+  lamports: number | BN,
+  wrap: boolean,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+Returns instructions to deposit SOL.
+
+### depositSolTx
+
+```typescript
+async depositSolTx(
+  lamports: number | BN,
+  wrap: boolean,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to deposit SOL.
+
+### depositIxs
+
+```typescript
+async depositIxs(
+  asset: PublicKey,
+  amount: number | BN,
+  glamSigner: PublicKey
+): Promise<TransactionInstruction[]>
+```
+
+Returns instructions to deposit tokens.
+
+### depositTx
+
+```typescript
+async depositTx(
+  asset: PublicKey,
+  amount: number | BN,
+  txOptions: TxOptions
+): Promise<VersionedTransaction>
+```
+
+Returns a versioned transaction to deposit tokens.
+
+## Example usage
+
+```typescript
+import { GlamClient } from "@glam/sdk";
+import { PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+
+const client = new GlamClient();
+client.statePda = new PublicKey("your-vault-state-pda");
+
+// Deposit USDC to vault
+const USDC = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+await client.vault.deposit(USDC, new BN(100_000_000));
+
+// Transfer some USDC from vault to recipient
+await client.vault.tokenTransfer(
+  USDC,
+  new BN(50_000_000),
+  recipientPubkey
+);
+
+// Check vault balance
+const balance = await client.getVaultTokenBalance(USDC);
+console.log(`Vault USDC balance: ${balance.uiAmount}`);
+```
+
+## Related
+
+- [BaseClient](/api/base-client) - Balance and account methods
+- [InvestClient](/api/invest-client) - Investor subscriptions and redemptions
+- [Managing assets](/guides/managing-assets) - Asset management guide

@@ -1,0 +1,405 @@
+---
+title: Clients
+description: Understanding the GLAM SDK client architecture
+---
+
+## Overview
+
+The GLAM SDK uses a modular client architecture with lazy-loaded modules. The `GlamClient` is the main entry point that provides access to specialized sub-clients for different protocols and operations.
+
+## Client hierarchy
+
+```typescript
+GlamClient (extends BaseClient)
+├── BaseClient - Core functionality
+├── VaultClient - Vault operations
+├── StateClient - State management
+├── MintClient - Share token operations
+├── AccessClient - Access control
+├── InvestClient - Subscriptions/redemptions
+├── PriceClient - Asset pricing
+├── FeesClient - Fee calculations
+├── JupiterSwapClient - Token swaps
+├── DriftProtocolClient - Drift perpetuals/lending
+├── DriftVaultsClient - Drift vaults
+├── KaminoLendingClient - Kamino lending
+├── KaminoFarmClient - Kamino farms
+├── KaminoVaultsClient - Kamino vaults
+├── MarinadeClient - Marinade staking
+├── StakeClient - Native staking
+├── StakePoolClient - Stake pool operations
+├── TimelockClient - Timelock management
+└── CctpClient - Cross-chain transfers
+```
+
+## GlamClient
+
+The main SDK client provides lazy-loaded access to all sub-clients:
+
+```typescript
+import { GlamClient } from '@glam/sdk';
+
+const client = new GlamClient({
+  provider: anchorProvider,
+  statePda: vaultPublicKey,
+});
+
+// Sub-clients are loaded on first access
+const balance = await client.vault.getVaultBalance();
+const stateModel = await client.state.fetchStateModel();
+```
+
+### Lazy loading pattern
+
+All sub-clients are lazy-loaded to minimize initial bundle size:
+
+```typescript
+// From client.ts:94-99
+get vault(): VaultClient {
+  if (!this._vault) {
+    this._vault = new VaultClient(this);
+  }
+  return this._vault;
+}
+```
+
+The first time you access `client.vault`, it instantiates the `VaultClient`. Subsequent accesses return the cached instance.
+
+## BaseClient
+
+The `BaseClient` class provides core functionality shared by all clients:
+
+### Key properties
+
+```typescript
+class BaseClient {
+  cluster: ClusterNetwork;                   // Network (mainnet/devnet/etc)
+  provider: AnchorProvider;                  // Anchor provider
+  blockhashWithCache: BlockhashWithCache;    // Cached blockhash
+  staging: boolean;                          // Use staging programs
+  
+  // Lazy-loaded Anchor programs
+  protocolProgram: GlamProtocolProgram;
+  mintProgram: GlamMintProgram;
+  extSplProgram: ExtSplProgram;
+  extDriftProgram: ExtDriftProgram;
+  extKaminoProgram: ExtKaminoProgram;
+  // ... more integration programs
+}
+```
+
+### Connection and wallet
+
+```typescript
+// Get the Solana connection
+const connection = client.connection;
+
+// Get the signer public key
+const signer = client.signer;
+
+// Get the wallet instance
+const wallet = client.wallet;
+```
+
+### Vault state
+
+```typescript
+// Check if connected to a vault
+if (client.isVaultConnected) {
+  // Access vault PDAs
+  const statePda = client.statePda;
+  const vaultPda = client.vaultPda;
+  const mintPda = client.mintPda;
+  const escrowPda = client.escrowPda;
+}
+
+// Connect to a different vault
+client.statePda = newVaultPublicKey;
+```
+
+### Fetching vault data
+
+```typescript
+// Fetch raw state account
+const stateAccount = await client.fetchStateAccount();
+
+// Fetch enriched state model
+const stateModel = await client.fetchStateModel();
+
+// Fetch all vaults (with filters)
+const myVaults = await client.fetchGlamStates({
+  owner: client.signer,
+  type: "tokenized_vault",
+});
+
+const delegatedVaults = await client.fetchGlamStates({
+  delegate: client.signer,
+});
+```
+
+### Transaction building
+
+```typescript
+// Convert legacy transaction to versioned
+const versionedTx = await client.intoVersionedTransaction(
+  legacyTransaction,
+  {
+    signer: walletPublicKey,
+    computeUnitLimit: 200_000,
+    lookupTables: [customLookupTable],
+  }
+);
+
+// Send and confirm transaction
+const signature = await client.sendAndConfirm(versionedTx);
+```
+
+<Note>
+The SDK automatically:
+- Simulates transactions to calculate compute units
+- Includes GLAM and protocol-specific lookup tables
+- Caches blockhashes for better performance
+- Parses program errors with readable messages
+</Note>
+
+## VaultClient
+
+Manages vault asset operations. See [Vaults](/core/vaults) for detailed documentation.
+
+```typescript
+// Example: Deposit and wrap SOL
+await client.vault.depositSol(1_000_000_000, true);
+
+// Transfer tokens from vault
+await client.vault.tokenTransfer(usdcMint, 1_000_000, recipient);
+```
+
+## StateClient
+
+Handles vault configuration and state management:
+
+```typescript
+// Initialize new vault
+await client.state.initialize({
+  accountType: StateAccountType.TOKENIZED_VAULT,
+  name: stringToChars("My Fund", 32),
+  baseAssetMint: USDC,
+});
+
+// Update configuration
+await client.state.update({
+  assets: [USDC, WSOL, JUP],
+});
+```
+
+## Integration clients
+
+Specialized clients for DeFi protocols:
+
+### JupiterSwapClient
+
+```typescript
+// Swap tokens using Jupiter
+await client.jupiterSwap.swap({
+  inputMint: USDC,
+  outputMint: WSOL,
+  amount: 1_000_000,
+  slippageBps: 50,
+});
+```
+
+### DriftProtocolClient
+
+```typescript
+// Initialize Drift user account
+await client.drift.initializeUser();
+
+// Deposit collateral
+await client.drift.deposit(
+  usdcMarketIndex,
+  1_000_000
+);
+```
+
+### KaminoLendingClient
+
+```typescript
+// Deposit to Kamino
+await client.kaminoLending.deposit(
+  reserveAddress,
+  1_000_000
+);
+
+// Borrow from Kamino
+await client.kaminoLending.borrow(
+  reserveAddress,
+  500_000
+);
+```
+
+### MarinadeClient
+
+```typescript
+// Stake SOL with Marinade
+await client.marinade.deposit(
+  1_000_000_000  // 1 SOL
+);
+
+// Unstake mSOL
+await client.marinade.liquidUnstake(
+  1_000_000_000  // 1 mSOL
+);
+```
+
+## BaseTxBuilder
+
+All clients with transaction capabilities extend `BaseTxBuilder`:
+
+```typescript
+class BaseTxBuilder<T extends { base: BaseClient }> {
+  constructor(readonly client: T) {}
+
+  // Build legacy transaction
+  build(
+    ixs: TransactionInstruction[],
+    txOptions: TxOptions = {}
+  ): Transaction;
+
+  // Build versioned transaction
+  async buildVersionedTx(
+    ixs: TransactionInstruction[],
+    txOptions: TxOptions = {}
+  ): Promise<VersionedTransaction>;
+}
+```
+
+### Pattern: Instructions, Transaction, Execute
+
+Most clients follow this pattern:
+
+```typescript
+class VaultClient {
+  // 1. Build instructions
+  async depositIxs(
+    asset: PublicKey,
+    amount: number,
+    glamSigner: PublicKey
+  ): Promise<TransactionInstruction[]>;
+
+  // 2. Build transaction
+  async depositTx(
+    asset: PublicKey,
+    amount: number,
+    txOptions: TxOptions
+  ): Promise<VersionedTransaction>;
+
+  // 3. Execute (build + send)
+  async deposit(
+    asset: PublicKey,
+    amount: number,
+    txOptions: TxOptions
+  ): Promise<TransactionSignature>;
+}
+```
+
+This allows you to:
+- Get instructions for custom transaction building
+- Build transactions without sending
+- Execute operations in a single call
+
+## Anchor programs
+
+The SDK provides typed access to Anchor programs:
+
+```typescript
+// Protocol program
+const protocolProgram = client.protocolProgram;
+const ix = await protocolProgram.methods
+  .updateState(stateModel)
+  .accounts({ glamState: statePda, glamSigner: signer })
+  .instruction();
+
+// Mint program
+const mintProgram = client.mintProgram;
+const requestQueue = await mintProgram.account.requestQueue.fetch(
+  requestQueuePda
+);
+
+// Integration programs
+const kaminoProgram = client.extKaminoProgram;
+const driftProgram = client.extDriftProgram;
+```
+
+<Info>
+Program instances are also lazy-loaded and cached. The correct program IDs are automatically selected based on `staging` configuration.
+</Info>
+
+## Error handling
+
+The SDK provides detailed error messages through `GlamError`:
+
+```typescript
+try {
+  await client.vault.deposit(usdcMint, amount);
+} catch (error) {
+  if (error instanceof GlamError) {
+    console.error('GLAM Error:', error.message);
+    console.error('Logs:', error.logs);
+    console.error('Raw error:', error.rawError);
+  }
+}
+```
+
+Program errors are automatically parsed with human-readable messages.
+
+## Event listeners
+
+Listen for sent transactions:
+
+```typescript
+client.onSentListeners.add((signature) => {
+  console.log('Transaction sent:', signature);
+  // Update UI, show notification, etc.
+});
+```
+
+## Advanced: Custom client configuration
+
+You can customize the client initialization:
+
+```typescript
+const client = new GlamClient({
+  // Option 1: Provide Anchor provider
+  provider: anchorProvider,
+  
+  // Option 2: Provide wallet (creates provider from env)
+  wallet: customWallet,
+  
+  // Optional: Specify cluster
+  cluster: ClusterNetwork.Devnet,
+  
+  // Optional: Connect to vault immediately
+  statePda: vaultPublicKey,
+  
+  // Optional: Jupiter API configuration
+  jupiterApiKey: 'your-api-key',
+  jupiterApiClient: customJupiterClient,
+  
+  // Optional: Use staging programs
+  useStaging: false,
+});
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/core/configuration">
+    Learn about SDK configuration options
+  </Card>
+  <Card title="Integrations" icon="plug" href="/integrations/overview">
+    Explore DeFi protocol integrations
+  </Card>
+  <Card title="API reference" icon="book" href="/api-reference/client">
+    View complete API documentation
+  </Card>
+</CardGroup>

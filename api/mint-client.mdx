@@ -1,0 +1,404 @@
+---
+title: MintClient
+description: Manage GLAM vault mint operations including token minting, burning, transfers, and account management
+---
+
+## Overview
+
+The `MintClient` handles all operations related to the GLAM vault's share token, including initialization, minting, burning, freezing, and force transfers.
+
+## Methods
+
+### initialize
+
+Initializes a new GLAM vault mint with the specified parameters.
+
+```typescript
+initialize(
+  initMintParams: InitMintParams,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="initMintParams" type="InitMintParams" required>
+  Mint initialization parameters including name, symbol, decimals, and base asset
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+const signature = await glamClient.mint.initialize({
+  accountType: StateAccountType.TOKENIZED_VAULT,
+  name: Array.from(Buffer.from("My Fund")),
+  symbol: "MYFUND",
+  uri: "https://example.com/metadata.json",
+  baseAssetMint: usdcMint,
+  decimals: 6
+});
+```
+
+### initializeWithStateParams
+
+Initializes a new GLAM vault mint with both mint and state parameters.
+
+```typescript
+initializeWithStateParams(
+  initMintParams: InitMintParams,
+  stateParams: UpdateStateParams,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="initMintParams" type="InitMintParams" required>
+  Mint initialization parameters
+</ParamField>
+
+<ParamField path="stateParams" type="UpdateStateParams" required>
+  State configuration parameters
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+### update
+
+Updates mint configuration parameters.
+
+```typescript
+update(
+  mintModel: Partial<MintIdlModel>,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="mintModel" type="Partial<MintIdlModel>" required>
+  Mint parameters to update (e.g., lockup period, caps, allowlists)
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+const signature = await glamClient.mint.update({
+  lockupPeriod: 86400, // 24 hours
+  maxCap: new BN(1000000),
+  minSubscription: new BN(1000)
+});
+```
+
+### mint
+
+Mints new share tokens to a recipient.
+
+```typescript
+mint(
+  to: PublicKey,
+  amount: BN | number,
+  unfreeze?: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="to" type="PublicKey" required>
+  Recipient address
+</ParamField>
+
+<ParamField path="amount" type="BN | number" required>
+  Amount to mint in base units
+</ParamField>
+
+<ParamField path="unfreeze" type="boolean" default="false">
+  Whether to unfreeze the recipient's token account
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+const signature = await glamClient.mint.mint(
+  recipientAddress,
+  new BN(1000000), // 1 USDC worth of shares (6 decimals)
+  true // Unfreeze account
+);
+```
+
+### burn
+
+Burns share tokens from an account.
+
+```typescript
+burn(
+  from: PublicKey,
+  amount: BN | number,
+  unfreeze?: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="from" type="PublicKey" required>
+  Account to burn from
+</ParamField>
+
+<ParamField path="amount" type="BN | number" required>
+  Amount to burn
+</ParamField>
+
+<ParamField path="unfreeze" type="boolean" default="false">
+  Whether to unfreeze the account before burning
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+const signature = await glamClient.mint.burn(
+  holderAddress,
+  new BN(500000),
+  true
+);
+```
+
+### forceTransfer
+
+Force transfers tokens between accounts (manager only).
+
+```typescript
+forceTransfer(
+  from: PublicKey,
+  to: PublicKey,
+  amount: BN | number,
+  unfreeze?: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="from" type="PublicKey" required>
+  Source account
+</ParamField>
+
+<ParamField path="to" type="PublicKey" required>
+  Destination account
+</ParamField>
+
+<ParamField path="amount" type="BN | number" required>
+  Amount to transfer
+</ParamField>
+
+<ParamField path="unfreeze" type="boolean" default="false">
+  Whether to unfreeze accounts before transfer
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+### createTokenAccount
+
+Creates a token account for an owner and optionally sets its frozen state.
+
+```typescript
+createTokenAccount(
+  owner: PublicKey,
+  setFrozen: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="owner" type="PublicKey" required>
+  Token account owner
+</ParamField>
+
+<ParamField path="setFrozen" type="boolean" required>
+  Initial frozen state
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+### setTokenAccountsStates
+
+Sets the frozen state of multiple token accounts.
+
+```typescript
+setTokenAccountsStates(
+  tokenAccounts: PublicKey[],
+  frozen: boolean,
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="tokenAccounts" type="PublicKey[]" required>
+  Array of token account addresses
+</ParamField>
+
+<ParamField path="frozen" type="boolean" required>
+  Target frozen state
+</ParamField>
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+**Example**
+
+```typescript
+const signature = await glamClient.mint.setTokenAccountsStates(
+  [account1, account2, account3],
+  true // Freeze all accounts
+);
+```
+
+### pauseSubscription
+
+Pauses new subscriptions to the vault.
+
+```typescript
+pauseSubscription(
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+### unpauseSubscription
+
+Resumes subscriptions to the vault.
+
+```typescript
+unpauseSubscription(
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+### pauseRedemption
+
+Pauses redemptions from the vault.
+
+```typescript
+pauseRedemption(
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+### unpauseRedemption
+
+Resumes redemptions from the vault.
+
+```typescript
+unpauseRedemption(
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+### close
+
+Closes the mint account.
+
+```typescript
+close(
+  txOptions?: TxOptions
+): Promise<TransactionSignature>
+```
+
+<ParamField path="txOptions" type="TxOptions">
+  Transaction options
+</ParamField>
+
+### fetchTokenHolders
+
+Fetches all token holders using Helius RPC (mainnet only) or falls back to on-chain scanning.
+
+```typescript
+fetchTokenHolders(
+  showZeroBalance?: boolean
+): Promise<TokenAccount[]>
+```
+
+<ParamField path="showZeroBalance" type="boolean" default="true">
+  Whether to include accounts with zero balance
+</ParamField>
+
+**Example**
+
+```typescript
+const holders = await glamClient.mint.fetchTokenHolders(false);
+console.log(`Found ${holders.length} holders`);
+holders.forEach(holder => {
+  console.log(`${holder.owner.toBase58()}: ${holder.uiAmount}`);
+});
+```
+
+### getHolders
+
+Gets token holders by scanning on-chain accounts (slower than fetchTokenHolders).
+
+```typescript
+getHolders(
+  showZeroBalance?: boolean
+): Promise<TokenAccount[]>
+```
+
+<ParamField path="showZeroBalance" type="boolean" default="true">
+  Whether to include accounts with zero balance
+</ParamField>
+
+## Types
+
+### InitMintParams
+
+```typescript
+type InitMintParams = {
+  accountType: StateAccountType;
+  name: number[];
+  symbol: string;
+  uri: string;
+  baseAssetMint: PublicKey;
+  decimals?: number;
+} & Partial<MintIdlModel>;
+```
+
+### TokenAccount
+
+```typescript
+interface TokenAccount {
+  owner: PublicKey;
+  pubkey: PublicKey;
+  mint: PublicKey;
+  programId: PublicKey;
+  decimals: number;
+  amount: string;
+  uiAmount: number;
+  frozen: boolean;
+}
+```

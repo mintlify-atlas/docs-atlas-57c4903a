@@ -1,0 +1,213 @@
+---
+title: PriceClient
+description: Fetch vault holdings and price DeFi positions across protocols
+---
+
+## Overview
+
+The `PriceClient` provides methods to fetch vault holdings across all supported protocols (tokens, Drift, Kamino) and generate pricing instructions for on-chain valuation.
+
+## Methods
+
+### getVaultHoldings
+
+Fetches all holdings in the vault including token balances and DeFi positions.
+
+```typescript
+getVaultHoldings(
+  commitment: Commitment,
+  priceBaseAssetMint?: PublicKey
+): Promise<VaultHoldings>
+```
+
+<ParamField path="commitment" type="Commitment" required>
+  Solana commitment level for fetching account data
+</ParamField>
+
+<ParamField path="priceBaseAssetMint" type="PublicKey" default="PublicKey.default">
+  Base asset for pricing. Default is USD. Pass a token mint (e.g., WSOL) to denominate prices in that asset.
+</ParamField>
+
+**Example**
+
+```typescript
+const holdings = await glamClient.price.getVaultHoldings("confirmed");
+
+console.log(`Vault state: ${holdings.vaultState.toBase58()}`);
+console.log(`Slot: ${holdings.slot}`);
+console.log(`Timestamp: ${holdings.timestamp}`);
+console.log(`Total holdings: ${holdings.holdings.length}`);
+
+holdings.holdings.forEach(holding => {
+  console.log(`${holding.protocol}: ${holding.uiAmount} ${holding.mintAddress.toBase58()}`);
+  console.log(`  Price: $${holding.price}`);
+  console.log(`  Value: $${holding.uiAmount * holding.price}`);
+});
+```
+
+**Holdings by protocol**
+
+```typescript
+// Get holdings denominated in SOL
+const solHoldings = await glamClient.price.getVaultHoldings(
+  "confirmed",
+  new PublicKey("So11111111111111111111111111111111111111112")
+);
+
+// Group by protocol
+const byProtocol = solHoldings.holdings.reduce((acc, h) => {
+  if (!acc[h.protocol]) acc[h.protocol] = [];
+  acc[h.protocol].push(h);
+  return acc;
+}, {} as Record<string, typeof solHoldings.holdings>);
+
+console.log("Token holdings:", byProtocol.Token?.length ?? 0);
+console.log("Drift positions:", byProtocol.DriftProtocol?.length ?? 0);
+console.log("Kamino positions:", byProtocol.KaminoLend?.length ?? 0);
+```
+
+### priceVaultIxs
+
+Generates pricing instructions for on-chain vault valuation.
+
+```typescript
+priceVaultIxs(): Promise<TransactionInstruction[]>
+```
+
+Returns array of instructions that price all vault positions. Used internally by subscribe/redeem operations.
+
+**Example**
+
+```typescript
+const pricingIxs = await glamClient.price.priceVaultIxs();
+console.log(`Generated ${pricingIxs.length} pricing instructions`);
+```
+
+### validateAumIx
+
+Generates an instruction to validate the vault's assets under management.
+
+```typescript
+validateAumIx(): Promise<TransactionInstruction>
+```
+
+### priceVaultTokensIx
+
+Generates an instruction to price vault token balances.
+
+```typescript
+priceVaultTokensIx(): Promise<TransactionInstruction>
+```
+
+### priceKaminoObligationsIxs
+
+Generates instructions to price Kamino lending positions.
+
+```typescript
+priceKaminoObligationsIxs(): Promise<TransactionInstruction[]>
+```
+
+### priceKaminoVaultSharesIx
+
+Generates instructions to price Kamino vault shares.
+
+```typescript
+priceKaminoVaultSharesIx(): Promise<TransactionInstruction[] | null>
+```
+
+### priceDriftUsersIx
+
+Generates an instruction to price Drift protocol positions.
+
+```typescript
+priceDriftUsersIx(): Promise<TransactionInstruction | null>
+```
+
+### priceDriftVaultDepositorsIx
+
+Generates an instruction to price Drift vault depositor positions.
+
+```typescript
+priceDriftVaultDepositorsIx(): Promise<TransactionInstruction | null>
+```
+
+### priceStakeAccountsIx
+
+Generates an instruction to price native SOL stake accounts.
+
+```typescript
+priceStakeAccountsIx(): Promise<TransactionInstruction | null>
+```
+
+## Types
+
+### VaultHoldings
+
+```typescript
+class VaultHoldings {
+  holdings: Holding[];
+  
+  constructor(
+    readonly vaultState: PublicKey,
+    readonly vaultPda: PublicKey,
+    readonly priceBaseAssetMint: PublicKey,
+    readonly slot: number,
+    readonly timestamp: number,
+    readonly commitment: Commitment
+  );
+  
+  toJson(): string;
+}
+```
+
+### Holding
+
+Represents a single asset holding within a vault.
+
+```typescript
+class Holding {
+  readonly uiAmount: number;
+  
+  constructor(
+    readonly mintAddress: PublicKey,
+    readonly decimals: number,
+    readonly amount: BN,
+    readonly price: number,
+    readonly priceMeta: Record<string, any>,
+    readonly protocol: string,
+    readonly protocolMeta: Record<string, any>
+  );
+}
+```
+
+**Protocol values:**
+- `"Token"` - SPL token balances
+- `"DriftProtocol"` - Drift trading positions
+- `"DriftVaults"` - Drift vault shares
+- `"KaminoLend"` - Kamino lending positions
+- `"KaminoVaults"` - Kamino vault shares
+
+**ProtocolMeta examples:**
+
+```typescript
+// Token holding
+{
+  tokenAccount: PublicKey
+}
+
+// Drift spot position
+{
+  user: PublicKey,
+  marketIndex: number,
+  direction: "long" | "short",
+  marketType: "spot"
+}
+
+// Kamino lending position
+{
+  obligation: PublicKey,
+  market: PublicKey,
+  reserve: PublicKey,
+  direction: "deposit" | "borrow"
+}
+```
