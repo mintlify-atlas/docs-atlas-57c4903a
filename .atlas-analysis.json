@@ -1,0 +1,149 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "GLAM SDK",
+  "projectDescription": "TypeScript SDK for building applications on the GLAM Protocol on Solana",
+  "theme": "palm",
+  "primaryColor": "#6366F1",
+  "lightColor": "#818CF8",
+  "darkColor": "#4F46E5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "core/glam-protocol",
+              "core/vaults",
+              "core/clients",
+              "core/configuration"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/creating-vaults",
+              "guides/managing-assets",
+              "guides/integrations",
+              "guides/access-control",
+              "guides/react-integration"
+            ]
+          },
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/basic-usage",
+              "examples/vault-operations",
+              "examples/defi-integrations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Clients",
+            "pages": [
+              "api/glam-client",
+              "api/base-client",
+              "api/vault-client",
+              "api/state-client",
+              "api/invest-client"
+            ]
+          },
+          {
+            "group": "Integration Clients",
+            "pages": [
+              "api/jupiter-swap",
+              "api/drift",
+              "api/kamino",
+              "api/marinade",
+              "api/stake-pool"
+            ]
+          },
+          {
+            "group": "Management Clients",
+            "pages": [
+              "api/access-client",
+              "api/mint-client",
+              "api/price-client",
+              "api/fees-client",
+              "api/timelock-client",
+              "api/cctp-client"
+            ]
+          },
+          {
+            "group": "Models & Types",
+            "pages": [
+              "api/models/state",
+              "api/models/mint",
+              "api/models/acl",
+              "api/types"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utils/accounts",
+              "api/utils/transactions",
+              "api/utils/pdas"
+            ]
+          },
+          {
+            "group": "React Hooks",
+            "pages": [
+              "api/react/providers",
+              "api/react/hooks"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Comprehensive vault management for GLAM Protocol",
+    "Integration with major Solana DeFi protocols (Jupiter, Drift, Kamino, Marinade)",
+    "Fine-grained access control and permissions",
+    "Asset pricing and fee management",
+    "React hooks for frontend integration",
+    "Type-safe TypeScript interfaces",
+    "Support for both mainnet and staging environments"
+  ],
+  "publicApiSurface": [
+    "GlamClient",
+    "VaultClient",
+    "StateClient",
+    "InvestClient",
+    "JupiterSwapClient",
+    "DriftProtocolClient",
+    "DriftVaultsClient",
+    "KaminoLendingClient",
+    "KaminoFarmClient",
+    "KaminoVaultsClient",
+    "MarinadeClient",
+    "StakeClient",
+    "StakePoolClient",
+    "AccessClient",
+    "MintClient",
+    "PriceClient",
+    "FeesClient",
+    "TimelockClient",
+    "CctpClient",
+    "StateModel",
+    "MintModel",
+    "IntegrationAcl",
+    "DelegateAcl",
+    "ClusterNetwork",
+    "GlamClientConfig"
+  ]
+}
