@@ -108,7 +108,9 @@
             "pages": [
               "api/utils/accounts",
               "api/utils/transactions",
-              "api/utils/pdas"
+              "api/utils/pdas",
+              "api/constants",
+              "api/errors"
             ]
           },
           {

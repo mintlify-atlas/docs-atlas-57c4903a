@@ -1,0 +1,198 @@
+---
+title: Error handling
+description: Error classes and utilities for handling SDK errors
+---
+
+## GlamError
+
+Custom error class for GLAM SDK operations that provides detailed error information from transactions.
+
+```typescript
+class GlamError extends Error {
+  message: string;
+  rawError: TransactionError | null | undefined;
+  programLogs?: string[];
+}
+```
+
+<ResponseField name="message" type="string">
+  Human-readable error message
+</ResponseField>
+
+<ResponseField name="rawError" type="TransactionError | null | undefined">
+  Original Solana transaction error
+</ResponseField>
+
+<ResponseField name="programLogs" type="string[]">
+  Program execution logs
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { GlamClient, GlamError } from '@glamsystems/glam-sdk';
+
+try {
+  await glamClient.state.initialize({
+    name: stringToChars("My Fund"),
+    enabled: true,
+    accountType: StateAccountType.VAULT,
+  });
+} catch (error) {
+  if (error instanceof GlamError) {
+    console.error('Transaction failed:', error.message);
+    console.error('Program logs:', error.programLogs);
+  }
+}
+```
+
+---
+
+## Error parsing utilities
+
+### parseTxError
+
+Parses a transaction error into a human-readable message.
+
+```typescript
+function parseTxError(error: any): string
+```
+
+<ParamField path="error" type="any" required>
+  Error object from a failed transaction
+</ParamField>
+
+**Returns:** Human-readable error message
+
+**Example:**
+
+```typescript
+import { parseTxError } from '@glamsystems/glam-sdk';
+
+try {
+  await client.sendTransaction(tx);
+} catch (error) {
+  const errorMessage = parseTxError(error);
+  console.error('Error:', errorMessage);
+}
+```
+
+### resolveErrorCode
+
+Resolves a program error code to a descriptive message.
+
+```typescript
+function resolveErrorCode(
+  code: number | string,
+  staging?: boolean,
+  programId?: string
+): string | undefined
+```
+
+<ParamField path="code" type="number | string" required>
+  Error code as decimal number or hex string (e.g., "0xBB80")
+</ParamField>
+
+<ParamField path="staging" type="boolean">
+  Whether to use staging program IDL
+</ParamField>
+
+<ParamField path="programId" type="string">
+  Program ID that failed (to avoid code collisions)
+</ParamField>
+
+**Returns:** Error message or `undefined` if code not found
+
+**Example:**
+
+```typescript
+import { resolveErrorCode } from '@glamsystems/glam-sdk';
+
+const errorMsg = resolveErrorCode(6000); // "Unauthorized access"
+const hexErrorMsg = resolveErrorCode("0x1770"); // Same as 6000
+```
+
+### extractFailedProgramId
+
+Extracts the program ID that failed from transaction logs.
+
+```typescript
+function extractFailedProgramId(
+  logs?: string[] | null
+): string | undefined
+```
+
+<ParamField path="logs" type="string[] | null">
+  Transaction program logs
+</ParamField>
+
+**Returns:** Program ID as base58 string, or `undefined` if not found
+
+**Example:**
+
+```typescript
+import { extractFailedProgramId } from '@glamsystems/glam-sdk';
+
+const programId = extractFailedProgramId(error.programLogs);
+if (programId) {
+  console.log('Failed program:', programId);
+}
+```
+
+---
+
+## Common error scenarios
+
+### Insufficient balance
+
+```typescript
+// Error: Insufficient balance for transaction
+```
+
+Ensure the wallet has enough SOL for:
+- Transaction fees
+- Rent for new accounts
+- Transfer amounts
+
+### Unauthorized access
+
+```typescript
+// Error: Unauthorized access
+```
+
+Common causes:
+- Wrong wallet connected
+- Missing delegate permissions
+- Integration not enabled
+
+### Slippage exceeded
+
+```typescript
+// Jupiter swap failed: Slippage tolerance exceeded
+```
+
+For Jupiter swaps, increase slippage tolerance:
+
+```typescript
+const quote = await client.jupiterSwap.getQuote({
+  inputMint,
+  outputMint,
+  amount,
+  slippageBps: 100, // Increase from default 50
+});
+```
+
+### Account already in use
+
+```typescript
+// Error: Account already in use
+```
+
+The account (vault, delegate, etc.) already exists. Use a different seed or address.
+
+---
+
+## Related
+
+- [BaseClient](/api/base-client) - Transaction methods that may throw errors
+- [State client](/api/state-client) - Vault creation and management

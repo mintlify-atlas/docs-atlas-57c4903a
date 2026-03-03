@@ -1,0 +1,222 @@
+---
+title: Constants
+description: SDK constants for token mints, PDAs, and program configuration
+---
+
+## Common token mints
+
+### WSOL
+
+Wrapped SOL token mint address.
+
+```typescript
+import { WSOL } from '@glamsystems/glam-sdk';
+
+const WSOL = new PublicKey('So11111111111111111111111111111111111111112');
+```
+
+### MSOL
+
+Marinade staked SOL (mSOL) token mint address.
+
+```typescript
+import { MSOL } from '@glamsystems/glam-sdk';
+
+const MSOL = new PublicKey('mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So');
+```
+
+### USDC
+
+USDC token mint address (6 decimals).
+
+```typescript
+import { USDC } from '@glamsystems/glam-sdk';
+```
+
+### USDT
+
+USDT token mint address (6 decimals).
+
+```typescript
+import { USDT } from '@glamsystems/glam-sdk';
+```
+
+---
+
+## PDA seeds
+
+Constants used for deriving Program Derived Addresses.
+
+### SEED_STATE
+
+Seed for vault state accounts.
+
+```typescript
+const SEED_STATE = "state";
+```
+
+### SEED_VAULT
+
+Seed for vault treasury accounts.
+
+```typescript
+const SEED_VAULT = "vault";
+```
+
+### SEED_MINT
+
+Seed for share token mint accounts.
+
+```typescript
+const SEED_MINT = "mint";
+```
+
+### SEED_ESCROW
+
+Seed for escrow accounts.
+
+```typescript
+const SEED_ESCROW = "escrow";
+```
+
+### SEED_REQUEST_QUEUE
+
+Seed for request queue accounts.
+
+```typescript
+const SEED_REQUEST_QUEUE = "request-queue";
+```
+
+---
+
+## Account sizes
+
+Constants for account size calculations.
+
+### STAKE_ACCOUNT_SIZE
+
+Size in bytes for native Solana stake accounts.
+
+```typescript
+const STAKE_ACCOUNT_SIZE = 200;
+```
+
+### KAMINO_OBTRIGATION_SIZE
+
+Size in bytes for Kamino lending obligation accounts.
+
+```typescript
+const KAMINO_OBTRIGATION_SIZE = 3344;
+```
+
+### DRIFT_VAULT_DEPOSITOR_SIZE
+
+Size in bytes for Drift vault depositor accounts.
+
+```typescript
+const DRIFT_VAULT_DEPOSITOR_SIZE = 272;
+```
+
+---
+
+## Utility functions
+
+### stringToChars
+
+Converts a string to a fixed-length character array for on-chain storage.
+
+```typescript
+function stringToChars(name: string, length: number = 32): number[]
+```
+
+<ParamField path="name" type="string" required>
+  String to convert
+</ParamField>
+
+<ParamField path="length" type="number">
+  Target array length (default: 32)
+</ParamField>
+
+**Example:**
+
+```typescript
+import { stringToChars } from '@glamsystems/glam-sdk';
+
+const nameChars = stringToChars("My Fund"); // [77, 121, 32, 70, 117, 110, 100, 0, 0, ...]
+```
+
+### charsToString
+
+Converts a character array back to a string.
+
+```typescript
+function charsToString(chars: number[] | Buffer): string
+```
+
+<ParamField path="chars" type="number[] | Buffer" required>
+  Character array to convert
+</ParamField>
+
+**Example:**
+
+```typescript
+import { charsToString } from '@glamsystems/glam-sdk';
+
+const name = charsToString([77, 121, 32, 70, 117, 110, 100]); // "My Fund"
+```
+
+### toUiAmount
+
+Converts a raw token amount to UI amount with decimals.
+
+```typescript
+function toUiAmount(amount: BN, decimals: number): number
+```
+
+<ParamField path="amount" type="BN" required>
+  Raw token amount
+</ParamField>
+
+<ParamField path="decimals" type="number" required>
+  Token decimals
+</ParamField>
+
+**Example:**
+
+```typescript
+import { toUiAmount } from '@glamsystems/glam-sdk';
+import { BN } from '@coral-xyz/anchor';
+
+const uiAmount = toUiAmount(new BN(1_000_000_000), 9); // 1.0 SOL
+```
+
+### fromUiAmount
+
+Converts a UI amount to raw token amount.
+
+```typescript
+function fromUiAmount(amount: number | string, decimals: number): BN
+```
+
+<ParamField path="amount" type="number | string" required>
+  UI amount with decimals
+</ParamField>
+
+<ParamField path="decimals" type="number" required>
+  Token decimals
+</ParamField>
+
+**Example:**
+
+```typescript
+import { fromUiAmount } from '@glamsystems/glam-sdk';
+
+const rawAmount = fromUiAmount(1.5, 9); // BN(1_500_000_000)
+```
+
+---
+
+## Related
+
+- [PDA utilities](/api/utils/pdas) - PDA derivation functions
+- [Account utilities](/api/utils/accounts) - Account fetching and parsing
